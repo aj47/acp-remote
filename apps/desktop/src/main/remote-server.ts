@@ -168,15 +168,24 @@ async function runAgent(options: RunAgentOptions): Promise<{
       // ACP agent - route to processTranscriptWithACPAgent
       diagnosticsService.logInfo("remote-server", `ACP mode enabled, routing to ACP agent: ${cfg.mainAgentName}`)
 
-      // Generate conversation ID if not provided
+      // Generate conversation ID if not provided, or add user message to existing conversation
       let conversationId = inputConversationId
       if (!conversationId) {
+        // New conversation - create with user message
         const newConversation = await conversationService.createConversationWithId(
           conversationService.generateConversationIdPublic(),
           prompt,
           "user"
         )
         conversationId = newConversation.id
+      } else {
+        // Existing conversation - add user message BEFORE processing
+        // This ensures the conversation history loaded by acp-main-agent.ts includes the current user message
+        await conversationService.addMessageToConversation(
+          conversationId,
+          prompt,
+          "user"
+        )
       }
 
       // Create conversation title for session tracking
