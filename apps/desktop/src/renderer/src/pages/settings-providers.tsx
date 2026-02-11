@@ -19,8 +19,7 @@ import { Config, ModelPreset } from "@shared/types"
 import { ModelPresetManager } from "@renderer/components/model-preset-manager"
 import { ProviderModelSelector } from "@renderer/components/model-selector"
 import { PresetModelSelector } from "@renderer/components/preset-model-selector"
-import { ProfileBadgeCompact } from "@renderer/components/profile-badge"
-import { Mic, Bot, Volume2, FileText, CheckCircle2, ChevronDown, ChevronRight, Brain, Zap, BookOpen, Settings2, Cpu, Download, Loader2 } from "lucide-react"
+import { Mic, Volume2, FileText, CheckCircle2, ChevronDown, ChevronRight, Brain, Zap, BookOpen, Settings2, Cpu, Download, Loader2 } from "lucide-react"
 
 import {
   STT_PROVIDERS,
@@ -533,30 +532,27 @@ export function Component() {
   )
 
   // Compute which providers are actively being used for each function
+  // Note: Agent/MCP Tools provider is no longer configurable - ACP agents handle their own LLM calls
   const activeProviders = useMemo(() => {
     if (!configQuery.data) return { openai: [], groq: [], gemini: [], parakeet: [], kitten: [] }
 
     const stt = configQuery.data.sttProviderId || "openai"
     const transcript = configQuery.data.transcriptPostProcessingProviderId || "openai"
-    const mcp = configQuery.data.mcpToolsProviderId || "openai"
     const tts = configQuery.data.ttsProviderId || "openai"
 
     return {
       openai: [
         ...(stt === "openai" ? [{ label: "STT", icon: Mic }] : []),
         ...(transcript === "openai" ? [{ label: "Transcript", icon: FileText }] : []),
-        ...(mcp === "openai" ? [{ label: "Agent", icon: Bot }] : []),
         ...(tts === "openai" ? [{ label: "TTS", icon: Volume2 }] : []),
       ],
       groq: [
         ...(stt === "groq" ? [{ label: "STT", icon: Mic }] : []),
         ...(transcript === "groq" ? [{ label: "Transcript", icon: FileText }] : []),
-        ...(mcp === "groq" ? [{ label: "Agent", icon: Bot }] : []),
         ...(tts === "groq" ? [{ label: "TTS", icon: Volume2 }] : []),
       ],
       gemini: [
         ...(transcript === "gemini" ? [{ label: "Transcript", icon: FileText }] : []),
-        ...(mcp === "gemini" ? [{ label: "Agent", icon: Bot }] : []),
         ...(tts === "gemini" ? [{ label: "TTS", icon: Volume2 }] : []),
       ],
       parakeet: [
@@ -636,15 +632,6 @@ export function Component() {
             onChange={(value) => saveConfig({ transcriptPostProcessingProviderId: value as CHAT_PROVIDER_ID })}
             providers={CHAT_PROVIDERS}
             icon={FileText}
-          />
-
-          <ProviderSelector
-            label={<span className="flex items-center gap-1.5">Agent/MCP Tools <ProfileBadgeCompact /></span>}
-            tooltip="Choose which provider to use for agent mode and MCP tool calling. This setting is saved per-profile."
-            value={configQuery.data.mcpToolsProviderId || "openai"}
-            onChange={(value) => saveConfig({ mcpToolsProviderId: value as CHAT_PROVIDER_ID })}
-            providers={CHAT_PROVIDERS}
-            icon={Bot}
           />
 
           <ProviderSelector

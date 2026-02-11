@@ -156,9 +156,9 @@ async function runAgent(options: RunAgentOptions): Promise<{
   const { prompt, conversationId: inputConversationId, onProgress } = options
   const cfg = configStore.get()
 
-  // Check if ACP main agent mode is enabled - route to ACP agent instead of LLM API
+  // Route to the configured ACP agent (always ACP mode now)
   // This mirrors the logic in tipc.ts processWithAgentMode
-  if (cfg.mainAgentMode === "acp" && cfg.mainAgentName) {
+  if (cfg.mainAgentName) {
     // Check if the selected main agent is an internal profile
     // Internal profiles use the direct LLM path instead of external ACP agents
     const mainAgentProfile = agentProfileService.getByName(cfg.mainAgentName)

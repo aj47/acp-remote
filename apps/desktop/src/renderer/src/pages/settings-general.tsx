@@ -807,109 +807,51 @@ export function Component() {
 
         {/* Agent Settings */}
         <ControlGroup title="Agent Settings">
-          {/* Main Agent Mode Selection */}
-          <Control label={<ControlLabel label="Main Agent Mode" tooltip="Choose how the main agent processes your requests. ACP mode (default) allows selecting internal or ACP agents. API mode uses direct LLM calls without agent selection." />} className="px-3">
+          <Control label={<ControlLabel label="Main Agent" tooltip="Select which ACP agent to use as the main agent. ACP agents handle all LLM calls and tool execution." />} className="px-3">
             <Select
-              value={configQuery.data?.mainAgentMode || "acp"}
-              onValueChange={(value: "api" | "acp") => {
-                saveConfig({ mainAgentMode: value })
+              value={configQuery.data?.mainAgentName || ""}
+              onValueChange={(value: string) => {
+                saveConfig({ mainAgentName: value })
               }}
             >
               <SelectTrigger className="w-[200px]">
-                <SelectValue />
+                <SelectValue placeholder="Select an agent..." />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="acp">Agent Mode (Recommended)</SelectItem>
-                <SelectItem value="api">Legacy API Mode</SelectItem>
+                {agentProfiles
+                  .filter(profile => {
+                    // Show all agent targets (ACP agents)
+                    const isACPAgent = profile.role === "external-agent" ||
+                      (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
+                    return isACPAgent && profile.enabled !== false
+                  })
+                  .map(profile => (
+                    <SelectItem key={profile.name} value={profile.name}>
+                      {profile.displayName || profile.name}
+                    </SelectItem>
+                  ))}
               </SelectContent>
             </Select>
           </Control>
 
-          {(configQuery.data?.mainAgentMode === "acp" || !configQuery.data?.mainAgentMode) && (
-            <>
-              <Control label={<ControlLabel label="Main Agent" tooltip="Select which agent to use as the main agent. Internal profiles use direct LLM APIs. ACP agents (ACP/stdio/remote) are full AI coding agents." />} className="px-3">
-                <Select
-                  value={configQuery.data?.mainAgentName || ""}
-                  onValueChange={(value: string) => {
-                    saveConfig({ mainAgentName: value })
-                  }}
-                >
-                  <SelectTrigger className="w-[200px]">
-                    <SelectValue placeholder="Select an agent..." />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {/* Internal profiles (use direct LLM path) */}
-                    {agentProfiles
-                      .filter(profile => {
-                        const isInternalAgent = profile.connection.type === "internal" && profile.isAgentTarget
-                        return isInternalAgent && profile.enabled !== false
-                      })
-                      .length > 0 && (
-                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Internal (LLM API)</div>
-                      )}
-                    {agentProfiles
-                      .filter(profile => {
-                        const isInternalAgent = profile.connection.type === "internal" && profile.isAgentTarget
-                        return isInternalAgent && profile.enabled !== false
-                      })
-                      .map(profile => (
-                        <SelectItem key={profile.name} value={profile.name}>
-                          {profile.displayName || profile.name}
-                        </SelectItem>
-                      ))}
-                    {/* ACP agents (ACP/stdio/remote) */}
-                    {agentProfiles
-                      .filter(profile => {
-                        const isACPAgent = profile.role === "external-agent" ||
-                          (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
-                        return isACPAgent && profile.enabled !== false
-                      })
-                      .length > 0 && (
-                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium border-t mt-1 pt-2">ACP Agents</div>
-                      )}
-                    {agentProfiles
-                      .filter(profile => {
-                        const isACPAgent = profile.role === "external-agent" ||
-                          (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
-                        return isACPAgent && profile.enabled !== false
-                      })
-                      .map(profile => (
-                        <SelectItem key={profile.name} value={profile.name}>
-                          {profile.displayName || profile.name}
-                        </SelectItem>
-                      ))}
-                  </SelectContent>
-                </Select>
-              </Control>
+          {configQuery.data?.mainAgentName && (
+            <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
+              <span className="font-medium">Note:</span> ACP agents use their own MCP tools and LLM, not ACP Remote's configured providers.
+            </div>
+          )}
 
-              {configQuery.data?.mainAgentName && (() => {
-                const selectedProfile = agentProfiles.find(p => p.name === configQuery.data?.mainAgentName)
-                const isInternalProfile = selectedProfile?.connection.type === "internal"
-                return isInternalProfile ? (
-                  <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
-                    <span className="font-medium">Note:</span> Internal profiles use ACP Remote's configured LLM providers and MCP tools.
-                  </div>
-                ) : (
-                  <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
-                    <span className="font-medium">Note:</span> ACP agents use their own MCP tools and LLM, not ACP Remote's configured providers.
-                  </div>
-                )
-              })()}
-
-              <Control label={<ControlLabel label="Inject ACP Remote Tools" tooltip="When enabled, ACP Remote's builtin tools (delegation, settings management) are injected into ACP agent sessions. This allows the ACP agent to delegate tasks to other agents. Requires Remote Server to be enabled." />} className="px-3">
-                <Switch
-                  checked={configQuery.data?.acpInjectBuiltinTools !== false}
-                  disabled={!configQuery.data?.remoteServerEnabled}
-                  onCheckedChange={(value) => saveConfig({ acpInjectBuiltinTools: value })}
-                />
-              </Control>
-              {!configQuery.data?.remoteServerEnabled && (
-                <div className="px-3 py-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-2 mx-3 mb-2">
-                  <span className="i-mingcute-warning-line h-4 w-4" />
-                  <span>Enable Remote Server in settings to use tool injection</span>
-                </div>
-              )}
-            </>
+          <Control label={<ControlLabel label="Inject ACP Remote Tools" tooltip="When enabled, ACP Remote's builtin tools (delegation, settings management) are injected into ACP agent sessions. This allows the ACP agent to delegate tasks to other agents. Requires Remote Server to be enabled." />} className="px-3">
+            <Switch
+              checked={configQuery.data?.acpInjectBuiltinTools !== false}
+              disabled={!configQuery.data?.remoteServerEnabled}
+              onCheckedChange={(value) => saveConfig({ acpInjectBuiltinTools: value })}
+            />
+          </Control>
+          {!configQuery.data?.remoteServerEnabled && (
+            <div className="px-3 py-2 text-xs text-amber-600 dark:text-amber-400 flex items-center gap-2 mx-3 mb-2">
+              <span className="i-mingcute-warning-line h-4 w-4" />
+              <span>Enable Remote Server in settings to use tool injection</span>
+            </div>
           )}
 
           <Control label={<ControlLabel label="Message Queuing" tooltip="Allow queueing messages while the agent is processing. Messages will be processed in order after the current task completes." />} className="px-3">

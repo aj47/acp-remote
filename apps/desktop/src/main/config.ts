@@ -216,10 +216,8 @@ const getConfig = () => {
     // This allows ACP agents to use delegation, settings management, etc.
     acpInjectBuiltinTools: true,
 
-    // Main Agent Mode - "acp" is the default, with "general-assistant" (internal) as the fallback
-    // This allows both internal profiles (LLM API) and external ACP agents to be used via the same UI
-    mainAgentMode: "acp" as const,
-    // Default to built-in "general-assistant" profile which uses internal LLM
+    // Main Agent Name - the ACP agent to use for processing requests
+    // We're now ACP-only mode (mainAgentMode is deprecated and always treated as "acp")
     mainAgentName: "general-assistant",
 
   }
@@ -228,18 +226,14 @@ const getConfig = () => {
     const savedConfig = JSON.parse(
       fs.readFileSync(configPath, "utf8"),
     ) as Config
-    // Apply migration for deprecated Groq TTS settings
-    // Migration notes:
-    // - mainAgentMode: Existing users with no setting get "acp" (default), users with "api" keep using API mode
-    // - mainAgentName: Existing users with no setting get "general-assistant" (internal profile using LLM APIs)
-    // This ensures backward compatibility: existing API mode users continue to work,
-    // while new users get the ACP-first experience with the internal agent profile.
+    // Apply migrations for deprecated settings
     const mergedConfig = { ...defaultConfig, ...savedConfig }
 
-    // Migration: Remove deprecated mode-specific panel sizes (these were never used)
+    // Migration: Remove deprecated settings
     delete (mergedConfig as any).panelNormalModeSize
     delete (mergedConfig as any).panelAgentModeSize
     delete (mergedConfig as any).panelTextInputModeSize
+    delete (mergedConfig as any).mainAgentMode // Deprecated: always ACP mode now
 
     return migrateGroqTtsConfig(mergedConfig)
   } catch {

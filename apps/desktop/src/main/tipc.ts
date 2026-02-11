@@ -213,8 +213,8 @@ async function processWithAgentMode(
 ): Promise<string> {
   const config = configStore.get()
 
-  // Check if ACP main agent mode is enabled - route to ACP agent instead of LLM API
-  if (config.mainAgentMode === "acp" && config.mainAgentName) {
+  // Route to the configured ACP agent (always ACP mode now)
+  if (config.mainAgentName) {
     // Check if the selected main agent is an internal profile
     // Internal profiles use the direct LLM path instead of external ACP agents
     const mainAgentProfile = agentProfileService.getByName(config.mainAgentName)

@@ -1372,10 +1372,13 @@ export type Config = {
   // Unified Agent Profiles (managed by agent-profile-service)
   agentProfiles?: AgentProfile[]
 
-  // Main agent mode: "api" uses external LLM API, "acp" uses an ACP agent as the brain
+  /**
+   * @deprecated Always ACP mode now. This field is ignored and will be removed.
+   * Kept for backward compatibility with existing config files.
+   */
   mainAgentMode?: "api" | "acp"
 
-  // Name of the ACP agent to use when mainAgentMode is "acp"
+  // Name of the ACP agent to use for processing requests
   mainAgentName?: string
 
   // ACP Tool Injection: When true (default), ACP Remote's builtin tools are injected
