@@ -808,9 +808,9 @@ export function Component() {
         {/* Agent Settings */}
         <ControlGroup title="Agent Settings">
           {/* Main Agent Mode Selection */}
-          <Control label={<ControlLabel label="Main Agent Mode" tooltip="Choose how the main agent processes your requests. API mode uses external LLM APIs (OpenAI, Groq, Gemini). ACP mode routes prompts to a configured ACP agent like Claude Code." />} className="px-3">
+          <Control label={<ControlLabel label="Main Agent Mode" tooltip="Choose how the main agent processes your requests. ACP mode (default) allows selecting internal or external agents. API mode uses direct LLM calls without agent selection." />} className="px-3">
             <Select
-              value={configQuery.data?.mainAgentMode || "api"}
+              value={configQuery.data?.mainAgentMode || "acp"}
               onValueChange={(value: "api" | "acp") => {
                 saveConfig({ mainAgentMode: value })
               }}
@@ -819,15 +819,15 @@ export function Component() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="api">API (OpenAI, Groq, Gemini)</SelectItem>
-                <SelectItem value="acp">ACP Agent</SelectItem>
+                <SelectItem value="acp">Agent Mode (Recommended)</SelectItem>
+                <SelectItem value="api">Legacy API Mode</SelectItem>
               </SelectContent>
             </Select>
           </Control>
 
-          {configQuery.data?.mainAgentMode === "acp" && (
+          {(configQuery.data?.mainAgentMode === "acp" || !configQuery.data?.mainAgentMode) && (
             <>
-              <Control label={<ControlLabel label="ACP Agent" tooltip="Select which configured ACP agent to use as the main agent. The agent must be configured in the External Agents settings page." />} className="px-3">
+              <Control label={<ControlLabel label="Main Agent" tooltip="Select which agent to use as the main agent. Internal profiles use direct LLM APIs. External agents (ACP/stdio/remote) are full AI coding agents." />} className="px-3">
                 <Select
                   value={configQuery.data?.mainAgentName || ""}
                   onValueChange={(value: string) => {
@@ -838,9 +838,37 @@ export function Component() {
                     <SelectValue placeholder="Select an agent..." />
                   </SelectTrigger>
                   <SelectContent>
+                    {/* Internal profiles (use direct LLM path) */}
                     {agentProfiles
                       .filter(profile => {
-                        // Show external agents (ACP/stdio/remote) that are enabled
+                        const isInternalAgent = profile.connection.type === "internal" && profile.isAgentTarget
+                        return isInternalAgent && profile.enabled !== false
+                      })
+                      .length > 0 && (
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium">Internal (LLM API)</div>
+                      )}
+                    {agentProfiles
+                      .filter(profile => {
+                        const isInternalAgent = profile.connection.type === "internal" && profile.isAgentTarget
+                        return isInternalAgent && profile.enabled !== false
+                      })
+                      .map(profile => (
+                        <SelectItem key={profile.name} value={profile.name}>
+                          {profile.displayName || profile.name}
+                        </SelectItem>
+                      ))}
+                    {/* External agents (ACP/stdio/remote) */}
+                    {agentProfiles
+                      .filter(profile => {
+                        const isExternalAgent = profile.role === "external-agent" ||
+                          (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
+                        return isExternalAgent && profile.enabled !== false
+                      })
+                      .length > 0 && (
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium border-t mt-1 pt-2">External (ACP Agents)</div>
+                      )}
+                    {agentProfiles
+                      .filter(profile => {
                         const isExternalAgent = profile.role === "external-agent" ||
                           (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
                         return isExternalAgent && profile.enabled !== false
@@ -854,11 +882,19 @@ export function Component() {
                 </Select>
               </Control>
 
-              {configQuery.data?.mainAgentName && (
-                <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
-                  <span className="font-medium">Note:</span> When using ACP mode, the agent will use its own MCP tools and LLM, not ACP Remote's configured providers and tools.
-                </div>
-              )}
+              {configQuery.data?.mainAgentName && (() => {
+                const selectedProfile = agentProfiles.find(p => p.name === configQuery.data?.mainAgentName)
+                const isInternalProfile = selectedProfile?.connection.type === "internal"
+                return isInternalProfile ? (
+                  <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
+                    <span className="font-medium">Note:</span> Internal profiles use ACP Remote's configured LLM providers and MCP tools.
+                  </div>
+                ) : (
+                  <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
+                    <span className="font-medium">Note:</span> External agents use their own MCP tools and LLM, not ACP Remote's configured providers.
+                  </div>
+                )
+              })()}
 
               <Control label={<ControlLabel label="Inject ACP Remote Tools" tooltip="When enabled, ACP Remote's builtin tools (delegation, settings management) are injected into ACP agent sessions. This allows the ACP agent to delegate tasks to other agents. Requires Remote Server to be enabled." />} className="px-3">
                 <Switch

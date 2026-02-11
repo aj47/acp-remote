@@ -215,42 +215,53 @@ async function processWithAgentMode(
 
   // Check if ACP main agent mode is enabled - route to ACP agent instead of LLM API
   if (config.mainAgentMode === "acp" && config.mainAgentName) {
-    logLLM(`[processWithAgentMode] ACP mode enabled, routing to agent: ${config.mainAgentName}`)
+    // Check if the selected main agent is an internal profile
+    // Internal profiles use the direct LLM path instead of external ACP agents
+    const mainAgentProfile = agentProfileService.getByName(config.mainAgentName)
+    const isInternalProfile = mainAgentProfile?.connection.type === "internal"
 
-    // Create conversation title for session tracking
-    const conversationTitle = text.length > 50 ? text.substring(0, 50) + "..." : text
+    if (!isInternalProfile) {
+      // External ACP agent - route to processTranscriptWithACPAgent
+      logLLM(`[processWithAgentMode] ACP mode enabled, routing to external agent: ${config.mainAgentName}`)
 
-    // Start tracking this agent session (or reuse existing one)
-    const sessionId = existingSessionId || agentSessionTracker.startSession(conversationId, conversationTitle, startSnoozed)
+      // Create conversation title for session tracking
+      const conversationTitle = text.length > 50 ? text.substring(0, 50) + "..." : text
 
-    // Process with ACP agent
-    const result = await processTranscriptWithACPAgent(text, {
-      agentName: config.mainAgentName,
-      conversationId: conversationId || sessionId,
-      sessionId,
-    })
+      // Start tracking this agent session (or reuse existing one)
+      const sessionId = existingSessionId || agentSessionTracker.startSession(conversationId, conversationTitle, startSnoozed)
 
-    // Save assistant response to conversation history if we have a conversation ID
-    // Note: User message is already added by createMcpTextInput or processQueuedMessages
-    if (conversationId && result.response) {
-      await conversationService.addMessageToConversation(
-        conversationId,
-        result.response,
-        "assistant"
-      )
+      // Process with ACP agent
+      const result = await processTranscriptWithACPAgent(text, {
+        agentName: config.mainAgentName,
+        conversationId: conversationId || sessionId,
+        sessionId,
+      })
+
+      // Save assistant response to conversation history if we have a conversation ID
+      // Note: User message is already added by createMcpTextInput or processQueuedMessages
+      if (conversationId && result.response) {
+        await conversationService.addMessageToConversation(
+          conversationId,
+          result.response,
+          "assistant"
+        )
+      }
+
+      // Mark session as completed
+      if (result.success) {
+        logLLM(`[processWithAgentMode] ACP mode completed successfully for session ${sessionId}, conversation ${conversationId}`)
+        agentSessionTracker.completeSession(sessionId, "ACP agent completed successfully")
+      } else {
+        logLLM(`[processWithAgentMode] ACP mode failed for session ${sessionId}: ${result.error}`)
+        agentSessionTracker.errorSession(sessionId, result.error || "Unknown error")
+      }
+
+      logLLM(`[processWithAgentMode] ACP mode returning, queue processing should trigger in .finally()`)
+      return result.response || result.error || "No response from agent"
     }
 
-    // Mark session as completed
-    if (result.success) {
-      logLLM(`[processWithAgentMode] ACP mode completed successfully for session ${sessionId}, conversation ${conversationId}`)
-      agentSessionTracker.completeSession(sessionId, "ACP agent completed successfully")
-    } else {
-      logLLM(`[processWithAgentMode] ACP mode failed for session ${sessionId}: ${result.error}`)
-      agentSessionTracker.errorSession(sessionId, result.error || "Unknown error")
-    }
-
-    logLLM(`[processWithAgentMode] ACP mode returning, queue processing should trigger in .finally()`)
-    return result.response || result.error || "No response from agent"
+    // Internal profile selected in ACP mode - fall through to use the direct LLM path
+    logLLM(`[processWithAgentMode] ACP mode with internal profile "${config.mainAgentName}", using direct LLM path`)
   }
 
   // NOTE: Don't clear all agent progress here - we support multiple concurrent sessions

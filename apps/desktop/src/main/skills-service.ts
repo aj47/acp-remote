@@ -2,6 +2,7 @@
 import { app } from "electron"
 import path from "path"
 import fs from "fs"
+import os from "os"
 import { AgentSkill, AgentSkillsData } from "@shared/types"
 import { randomUUID } from "crypto"
 import { logApp } from "./debug"
@@ -12,6 +13,18 @@ import type { RendererHandlers } from "./renderer-handlers"
 import { WINDOWS } from "./window"
 
 const execAsync = promisify(exec)
+
+/**
+ * External skill directories to scan for SKILL.md files.
+ * These are standard locations used by various AI coding tools.
+ * Skills from these directories are imported with source: "external".
+ */
+export const EXTERNAL_SKILL_DIRECTORIES = [
+  { path: path.join(os.homedir(), ".augment", "skills"), name: "~/.augment/skills" },
+  { path: path.join(os.homedir(), ".claude", "skills"), name: "~/.claude/skills" },
+  { path: path.join(os.homedir(), ".agents", "skills"), name: "~/.agents/skills" },
+  { path: path.join(os.homedir(), ".codex", "skills"), name: "~/.codex/skills" },
+]
 
 /**
  * Common paths where SKILL.md files might be located in a GitHub repo
@@ -547,7 +560,7 @@ class SkillsService {
     name: string,
     description: string,
     instructions: string,
-    options?: { source?: "local" | "imported"; filePath?: string }
+    options?: { source?: "local" | "imported" | "external"; filePath?: string; sourceDirectory?: string }
   ): AgentSkill {
     if (!this.skillsData) {
       this.loadSkills()
@@ -563,6 +576,7 @@ class SkillsService {
       updatedAt: Date.now(),
       source: options?.source ?? "local",
       filePath: options?.filePath,
+      sourceDirectory: options?.sourceDirectory,
     }
 
     this.skillsData!.skills.push(newSkill)
@@ -617,23 +631,36 @@ class SkillsService {
 
   /**
    * Import a skill from SKILL.md content
+   * @param content The SKILL.md file content
+   * @param filePath Optional path to the SKILL.md file
+   * @param options Optional import options (source type, source directory)
    */
-  importSkillFromMarkdown(content: string, filePath?: string): AgentSkill {
+  importSkillFromMarkdown(
+    content: string,
+    filePath?: string,
+    options?: { source?: "local" | "imported" | "external"; sourceDirectory?: string }
+  ): AgentSkill {
     const parsed = parseSkillMarkdown(content)
     if (!parsed) {
       throw new Error("Invalid SKILL.md format. Expected YAML frontmatter with 'name' field.")
     }
     return this.createSkill(parsed.name, parsed.description, parsed.instructions, {
-      source: filePath ? "imported" : "local",
+      source: options?.source ?? (filePath ? "imported" : "local"),
       filePath,
+      sourceDirectory: options?.sourceDirectory,
     })
   }
 
   /**
    * Import a skill from a SKILL.md file path
    * If a skill with the same file path already exists, it will be skipped (returns existing skill)
+   * @param filePath Path to the SKILL.md file
+   * @param options Optional import options (source type, source directory)
    */
-  importSkillFromFile(filePath: string): AgentSkill {
+  importSkillFromFile(
+    filePath: string,
+    options?: { source?: "local" | "imported" | "external"; sourceDirectory?: string }
+  ): AgentSkill {
     // Check if skill from this file path already exists (de-duplication)
     const existingSkill = this.getSkillByFilePath(filePath)
     if (existingSkill) {
@@ -643,7 +670,7 @@ class SkillsService {
 
     try {
       const content = fs.readFileSync(filePath, "utf8")
-      return this.importSkillFromMarkdown(content, filePath)
+      return this.importSkillFromMarkdown(content, filePath, options)
     } catch (error) {
       throw new Error(`Failed to import skill from file: ${error instanceof Error ? error.message : String(error)}`)
     }
@@ -1163,63 +1190,149 @@ Use \`acpremote-settings:execute_command\` with a skill's ID to run commands in 
    * Scan the skills folder for SKILL.md files and import any new ones.
    * Uses file path de-duplication to prevent re-importing the same files on repeated scans.
    * Recursively scans nested directories to find skills at any depth.
+   * Also scans external skill directories (~/.augment/skills, ~/.claude/skills, etc.)
    */
   scanSkillsFolder(): AgentSkill[] {
     const importedSkills: AgentSkill[] = []
 
+    // Scan the App Data skills folder
     try {
       if (!fs.existsSync(skillsFolder)) {
         fs.mkdirSync(skillsFolder, { recursive: true })
-        return importedSkills
-      }
+      } else {
+        // Recursively scan for SKILL.md files
+        const scanDirectory = (dirPath: string, rootPath: string, options?: { source?: "local" | "imported" | "external"; sourceDirectory?: string }) => {
+          const entries = fs.readdirSync(dirPath, { withFileTypes: true })
 
-      // Recursively scan for SKILL.md files
-      const scanDirectory = (dirPath: string) => {
-        const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+          for (const entry of entries) {
+            if (entry.isDirectory()) {
+              const entryPath = path.join(dirPath, entry.name)
+              const skillPath = path.join(entryPath, "SKILL.md")
 
-        for (const entry of entries) {
-          if (entry.isDirectory()) {
-            const entryPath = path.join(dirPath, entry.name)
-            const skillPath = path.join(entryPath, "SKILL.md")
-
-            if (fs.existsSync(skillPath)) {
-              // This directory contains a SKILL.md - import it
+              if (fs.existsSync(skillPath)) {
+                // This directory contains a SKILL.md - import it
+                if (this.getSkillByFilePath(skillPath)) {
+                  logApp(`Skill already imported, skipping: ${entry.name}`)
+                  continue
+                }
+                try {
+                  const skill = this.importSkillFromFile(skillPath, options)
+                  importedSkills.push(skill)
+                  logApp(`Imported skill from folder: ${entry.name}`)
+                } catch (error) {
+                  logApp(`Failed to import skill from ${skillPath}:`, error)
+                }
+              } else {
+                // No SKILL.md here, recurse into subdirectory
+                scanDirectory(entryPath, rootPath, options)
+              }
+            } else if (entry.name.endsWith(".md") && dirPath === rootPath) {
+              // Import standalone .md files only at the top level
+              const skillPath = path.join(dirPath, entry.name)
               if (this.getSkillByFilePath(skillPath)) {
                 logApp(`Skill already imported, skipping: ${entry.name}`)
                 continue
               }
               try {
-                const skill = this.importSkillFromFile(skillPath)
+                const skill = this.importSkillFromFile(skillPath, options)
                 importedSkills.push(skill)
-                logApp(`Imported skill from folder: ${entry.name}`)
+                logApp(`Imported skill from file: ${entry.name}`)
               } catch (error) {
                 logApp(`Failed to import skill from ${skillPath}:`, error)
               }
-            } else {
-              // No SKILL.md here, recurse into subdirectory
-              scanDirectory(entryPath)
-            }
-          } else if (entry.name.endsWith(".md") && dirPath === skillsFolder) {
-            // Import standalone .md files only at the top level
-            const skillPath = path.join(dirPath, entry.name)
-            if (this.getSkillByFilePath(skillPath)) {
-              logApp(`Skill already imported, skipping: ${entry.name}`)
-              continue
-            }
-            try {
-              const skill = this.importSkillFromFile(skillPath)
-              importedSkills.push(skill)
-              logApp(`Imported skill from file: ${entry.name}`)
-            } catch (error) {
-              logApp(`Failed to import skill from ${skillPath}:`, error)
             }
           }
         }
-      }
 
-      scanDirectory(skillsFolder)
+        scanDirectory(skillsFolder, skillsFolder)
+      }
     } catch (error) {
       logApp("Error scanning skills folder:", error)
+    }
+
+    // Also scan external skill directories
+    const externalSkills = this.scanExternalSkillDirectories()
+    importedSkills.push(...externalSkills)
+
+    return importedSkills
+  }
+
+  /**
+   * Scan external skill directories for SKILL.md files.
+   * These are standard locations used by various AI coding tools:
+   * - ~/.augment/skills
+   * - ~/.claude/skills
+   * - ~/.agents/skills
+   * - ~/.codex/skills
+   *
+   * Skills from these directories are imported with source: "external"
+   * and include the sourceDirectory field for tracking.
+   */
+  scanExternalSkillDirectories(): AgentSkill[] {
+    const importedSkills: AgentSkill[] = []
+
+    for (const { path: dirPath, name: dirName } of EXTERNAL_SKILL_DIRECTORIES) {
+      try {
+        if (!fs.existsSync(dirPath)) {
+          // Directory doesn't exist, skip silently
+          continue
+        }
+
+        logApp(`Scanning external skill directory: ${dirName}`)
+        const entries = fs.readdirSync(dirPath, { withFileTypes: true })
+
+        for (const entry of entries) {
+          if (!entry.isDirectory()) continue
+
+          const entryPath = path.join(dirPath, entry.name)
+          const skillPath = path.join(entryPath, "SKILL.md")
+
+          if (!fs.existsSync(skillPath)) {
+            // Also check for lowercase skill.md
+            const skillPathLower = path.join(entryPath, "skill.md")
+            if (!fs.existsSync(skillPathLower)) {
+              continue
+            }
+            // Use lowercase path
+            const existingSkill = this.getSkillByFilePath(skillPathLower)
+            if (existingSkill) {
+              logApp(`External skill already imported, skipping: ${dirName}/${entry.name}`)
+              continue
+            }
+            try {
+              const skill = this.importSkillFromFile(skillPathLower, {
+                source: "external",
+                sourceDirectory: dirName,
+              })
+              importedSkills.push(skill)
+              logApp(`Imported external skill: ${dirName}/${entry.name}`)
+            } catch (error) {
+              logApp(`Failed to import external skill from ${skillPathLower}:`, error)
+            }
+            continue
+          }
+
+          // Check if already imported
+          const existingSkill = this.getSkillByFilePath(skillPath)
+          if (existingSkill) {
+            logApp(`External skill already imported, skipping: ${dirName}/${entry.name}`)
+            continue
+          }
+
+          try {
+            const skill = this.importSkillFromFile(skillPath, {
+              source: "external",
+              sourceDirectory: dirName,
+            })
+            importedSkills.push(skill)
+            logApp(`Imported external skill: ${dirName}/${entry.name}`)
+          } catch (error) {
+            logApp(`Failed to import external skill from ${skillPath}:`, error)
+          }
+        }
+      } catch (error) {
+        logApp(`Error scanning external skill directory ${dirName}:`, error)
+      }
     }
 
     return importedSkills
@@ -1309,38 +1422,63 @@ function setupWatcher(dirPath: string): fs.FSWatcher | null {
 function refreshLinuxSubdirectoryWatchers(): void {
   if (process.platform !== "linux") return
 
-  // Close all existing watchers except the first one (root folder)
-  const rootWatcher = skillsWatchers[0]
-  for (let i = 1; i < skillsWatchers.length; i++) {
+  // Close all watchers and recreate them
+  for (const watcher of skillsWatchers) {
     try {
-      skillsWatchers[i].close()
+      watcher.close()
     } catch {
       // Ignore close errors
     }
   }
-  skillsWatchers = rootWatcher ? [rootWatcher] : []
+  skillsWatchers = []
 
-  // Re-scan and add watchers for subdirectories
+  // Re-scan and add watchers for App Data skills folder and subdirectories
   try {
-    const entries = fs.readdirSync(skillsFolder, { withFileTypes: true })
-    for (const entry of entries) {
-      if (entry.isDirectory()) {
-        const subDirPath = path.join(skillsFolder, entry.name)
-        const watcher = setupWatcher(subDirPath)
-        if (watcher) {
-          skillsWatchers.push(watcher)
+    if (fs.existsSync(skillsFolder)) {
+      const rootWatcher = setupWatcher(skillsFolder)
+      if (rootWatcher) skillsWatchers.push(rootWatcher)
+
+      const entries = fs.readdirSync(skillsFolder, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const subDirPath = path.join(skillsFolder, entry.name)
+          const watcher = setupWatcher(subDirPath)
+          if (watcher) skillsWatchers.push(watcher)
         }
       }
     }
-    logApp(`Linux: Refreshed watchers, now watching ${skillsWatchers.length} directories`)
   } catch (error) {
-    logApp("Failed to refresh Linux subdirectory watchers:", error)
+    logApp("Failed to refresh Linux App Data subdirectory watchers:", error)
   }
+
+  // Also re-add watchers for external skill directories
+  for (const { path: extDirPath, name: dirName } of EXTERNAL_SKILL_DIRECTORIES) {
+    try {
+      if (!fs.existsSync(extDirPath)) continue
+
+      const extWatcher = setupWatcher(extDirPath)
+      if (extWatcher) skillsWatchers.push(extWatcher)
+
+      const entries = fs.readdirSync(extDirPath, { withFileTypes: true })
+      for (const entry of entries) {
+        if (entry.isDirectory()) {
+          const subDirPath = path.join(extDirPath, entry.name)
+          const watcher = setupWatcher(subDirPath)
+          if (watcher) skillsWatchers.push(watcher)
+        }
+      }
+    } catch (error) {
+      logApp(`Failed to refresh Linux watchers for ${dirName}:`, error)
+    }
+  }
+
+  logApp(`Linux: Refreshed watchers, now watching ${skillsWatchers.length} directories`)
 }
 
 /**
  * Start watching the skills folder for changes.
  * Automatically notifies the renderer when new skills are added or modified.
+ * Also watches external skill directories (~/.augment/skills, ~/.claude/skills, etc.)
  *
  * Note: On Linux, fs.watch({ recursive: true }) is not supported, so we set up
  * individual watchers for the root folder and each skill subdirectory.
@@ -1357,9 +1495,10 @@ export function startSkillsFolderWatcher(): void {
     return
   }
 
-  try {
-    const isLinux = process.platform === "linux"
+  const isLinux = process.platform === "linux"
 
+  // Watch the App Data skills folder
+  try {
     if (isLinux) {
       // Linux: Set up non-recursive watcher for root folder
       const rootWatcher = setupWatcher(skillsFolder)
@@ -1388,7 +1527,7 @@ export function startSkillsFolderWatcher(): void {
 
       watcher.on("error", (error) => {
         logApp("Skills folder watcher error:", error)
-        stopSkillsFolderWatcher()
+        // Don't stop all watchers, just log the error
       })
 
       skillsWatchers.push(watcher)
@@ -1397,6 +1536,55 @@ export function startSkillsFolderWatcher(): void {
   } catch (error) {
     logApp("Failed to start skills folder watcher:", error)
   }
+
+  // Also watch external skill directories
+  for (const { path: extDirPath, name: dirName } of EXTERNAL_SKILL_DIRECTORIES) {
+    try {
+      if (!fs.existsSync(extDirPath)) {
+        // Directory doesn't exist, skip silently
+        continue
+      }
+
+      if (isLinux) {
+        // Linux: Set up non-recursive watchers
+        const extRootWatcher = setupWatcher(extDirPath)
+        if (extRootWatcher) {
+          skillsWatchers.push(extRootWatcher)
+        }
+
+        // Watch each subdirectory
+        const entries = fs.readdirSync(extDirPath, { withFileTypes: true })
+        for (const entry of entries) {
+          if (entry.isDirectory()) {
+            const subDirPath = path.join(extDirPath, entry.name)
+            const watcher = setupWatcher(subDirPath)
+            if (watcher) {
+              skillsWatchers.push(watcher)
+            }
+          }
+        }
+        logApp(`Started watching external skills (Linux mode): ${dirName}`)
+      } else {
+        // macOS and Windows: Use recursive watching
+        const watcher = fs.watch(extDirPath, { recursive: true }, (eventType, filename) => {
+          handleWatcherEvent(eventType, filename)
+        })
+
+        watcher.on("error", (error) => {
+          logApp(`External skills folder watcher error for ${dirName}:`, error)
+          // Don't stop all watchers on a single error
+        })
+
+        skillsWatchers.push(watcher)
+        logApp(`Started watching external skills folder: ${dirName}`)
+      }
+    } catch (error) {
+      logApp(`Failed to start watcher for external skills folder ${dirName}:`, error)
+      // Continue to next directory
+    }
+  }
+
+  logApp(`Total skills watchers active: ${skillsWatchers.length}`)
 }
 
 /**

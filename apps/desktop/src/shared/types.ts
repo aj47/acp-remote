@@ -1114,8 +1114,10 @@ export interface AgentSkill {
   enabled: boolean
   createdAt: number
   updatedAt: number
-  source?: "local" | "imported" // Where the skill came from
+  source?: "local" | "imported" | "external" // Where the skill came from
   filePath?: string // Path to the SKILL.md file if loaded from disk
+  /** For external skills, which directory it came from (e.g., "~/.augment/skills") */
+  sourceDirectory?: string
 }
 
 export interface AgentSkillsData {

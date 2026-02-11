@@ -12,11 +12,111 @@ import {
   clearSessionForConversation,
   touchSession,
   setAcpToSpeakMcpSessionMapping,
+  hasContextBeenInjected,
+  markContextInjected,
 } from "./acp-session-state"
 import { emitAgentProgress } from "./emit-agent-progress"
-import { AgentProgressUpdate, AgentProgressStep } from "../shared/types"
+import { AgentProgressUpdate, AgentProgressStep, AgentMemory } from "../shared/types"
 import { logApp } from "./debug"
 import { conversationService } from "./conversation-service"
+import { memoryService } from "./memory-service"
+import { skillsService } from "./skills-service"
+import { configStore } from "./config"
+
+/**
+ * Format memories for ACP context injection.
+ * Similar to formatMemoriesForPrompt in system-prompts.ts but returns a simpler format.
+ */
+function formatMemoriesForContext(memories: AgentMemory[], maxMemories: number = 15): string {
+  if (!memories || memories.length === 0) return ""
+
+  // Sort by importance (critical > high > medium > low) then by recency
+  const importanceOrder: Record<string, number> = { critical: 0, high: 1, medium: 2, low: 3 }
+  const sorted = [...memories].sort((a, b) => {
+    const impDiff = importanceOrder[a.importance] - importanceOrder[b.importance]
+    if (impDiff !== 0) return impDiff
+    return b.createdAt - a.createdAt // More recent first
+  })
+
+  // Take top N memories
+  const selected = sorted.slice(0, maxMemories)
+  if (selected.length === 0) return ""
+
+  // Format as single-line entries
+  return selected.map(mem => `- ${mem.content.replace(/[\r\n]+/g, ' ')}`).join("\n")
+}
+
+/**
+ * Construct the context prefix to inject into the first ACP prompt.
+ * This includes memories, guidelines, and skills - similar to how LLM mode works.
+ */
+async function constructACPContextPrefix(profileId?: string): Promise<string> {
+  const sections: string[] = []
+  const config = configStore.get()
+
+  // 1. Memories (profile-scoped if available)
+  if (config.memoriesEnabled !== false && config.dualModelInjectMemories) {
+    try {
+      const allMemories = profileId
+        ? await memoryService.getMemoriesByProfile(profileId)
+        : await memoryService.getAllMemories()
+
+      const formattedMemories = formatMemoriesForContext(allMemories, 15)
+      if (formattedMemories) {
+        sections.push(`# Memories from Previous Sessions
+These are important insights and learnings saved from previous interactions. Use them to inform your decisions.
+
+${formattedMemories}`)
+      }
+    } catch (error) {
+      logApp(`[ACP Context] Failed to load memories: ${error}`)
+    }
+  }
+
+  // 2. User Guidelines (from profile or global config)
+  const guidelines = config.mcpToolsSystemPrompt?.trim()
+  if (guidelines) {
+    sections.push(`# User Guidelines
+${guidelines}`)
+  }
+
+  // 3. Skills (enabled skills for the profile)
+  try {
+    const enabledSkills = skillsService.getEnabledSkills()
+    if (enabledSkills.length > 0) {
+      const skillsList = enabledSkills.map(skill => {
+        const source = skill.source === "external" && skill.sourceDirectory
+          ? ` (from ${skill.sourceDirectory})`
+          : ""
+        return `- **${skill.name}**${source}: ${skill.description || 'No description'}`
+      }).join("\n")
+
+      sections.push(`# Available Skills
+The following skills are available to help with specialized tasks:
+
+${skillsList}
+
+To get full instructions for a skill, you can ask about it or use the skill's guidance directly.`)
+    }
+  } catch (error) {
+    logApp(`[ACP Context] Failed to load skills: ${error}`)
+  }
+
+  if (sections.length === 0) {
+    return ""
+  }
+
+  return `---
+# Context from ACP Remote
+
+The following context is provided to help you assist the user effectively.
+
+${sections.join("\n\n")}
+
+---
+
+`
+}
 
 export interface ACPMainAgentOptions {
   /** Name of the ACP agent to use */
@@ -278,8 +378,23 @@ export async function processTranscriptWithACPAgent(
     acpService.on("sessionUpdate", progressHandler)
 
     try {
+      // Check if this is the first prompt for this session (context not yet injected)
+      const shouldInjectContext = !hasContextBeenInjected(conversationId)
+      let promptToSend = transcript
+
+      if (shouldInjectContext) {
+        // Construct and prepend context prefix (memories, guidelines, skills)
+        const contextPrefix = await constructACPContextPrefix(configStore.get().mcpCurrentProfileId)
+        if (contextPrefix) {
+          promptToSend = contextPrefix + transcript
+          logApp(`[ACP Main] Injected context prefix (${contextPrefix.length} chars) for first prompt`)
+        }
+        // Mark context as injected so we don't inject again for this session
+        markContextInjected(conversationId)
+      }
+
       // Send the prompt
-      const result = await acpService.sendPrompt(agentName, acpSessionId, transcript)
+      const result = await acpService.sendPrompt(agentName, acpSessionId, promptToSend)
 
       // Use accumulated text if result.response is empty but we received streaming content
       const finalResponse = result.response || accumulatedText || undefined

@@ -20,6 +20,8 @@ export interface ACPSessionInfo {
   createdAt: number
   /** Timestamp when the session was last used */
   lastUsedAt: number
+  /** Whether context (memories, guidelines, skills) has been injected for this session */
+  contextInjected?: boolean
 }
 
 // In-memory storage for conversation-to-session mapping
@@ -109,6 +111,28 @@ export function touchSession(conversationId: string): void {
   const session = conversationSessions.get(conversationId)
   if (session) {
     session.lastUsedAt = Date.now()
+  }
+}
+
+/**
+ * Check if context has been injected for a session.
+ * @param conversationId The ACP Remote conversation ID
+ * @returns true if context has been injected, false otherwise
+ */
+export function hasContextBeenInjected(conversationId: string): boolean {
+  const session = conversationSessions.get(conversationId)
+  return session?.contextInjected ?? false
+}
+
+/**
+ * Mark context as injected for a session.
+ * @param conversationId The ACP Remote conversation ID
+ */
+export function markContextInjected(conversationId: string): void {
+  const session = conversationSessions.get(conversationId)
+  if (session) {
+    session.contextInjected = true
+    logApp(`[ACP Session] Marked context as injected for conversation ${conversationId}`)
   }
 }
 

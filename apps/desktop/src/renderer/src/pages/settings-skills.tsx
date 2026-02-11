@@ -446,7 +446,15 @@ export function Component() {
                       <p className="text-sm text-muted-foreground mt-1">{skill.description}</p>
                     )}
                     <p className="text-xs text-muted-foreground mt-2">
-                      {skill.instructions.length} characters • {skill.source || "local"}
+                      {skill.instructions.length} characters • {
+                        skill.source === "external" && skill.sourceDirectory
+                          ? skill.sourceDirectory
+                          : skill.source === "github"
+                            ? "GitHub"
+                            : skill.source === "folder"
+                              ? "Imported Folder"
+                              : skill.source || "Local"
+                      }
                     </p>
                   </div>
                 </div>
