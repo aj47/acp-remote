@@ -17,29 +17,31 @@ import {
 } from "@shared/types"
 import { randomUUID } from "crypto"
 import { logApp } from "./debug"
-import { configStore } from "./config"
+import { configStore, dataFolder } from "./config"
 import { acpRegistry } from "./acp/acp-registry"
 import type { ACPAgentDefinition } from "./acp/types"
 
 /**
  * Path to the agent profiles storage file.
+ * Uses dataFolder (app.getPath("appData") + APP_ID) for consistency with
+ * all other app data (config.json, profiles.json, etc.).
  */
-export const agentProfilesPath = path.join(
-  app.getPath("userData"),
-  "agent-profiles.json"
-)
+export const agentProfilesPath = path.join(dataFolder, "agent-profiles.json")
 
 /**
  * Path to the agent profile conversations storage file.
  */
-export const agentProfileConversationsPath = path.join(
-  app.getPath("userData"),
-  "agent-profile-conversations.json"
-)
+export const agentProfileConversationsPath = path.join(dataFolder, "agent-profile-conversations.json")
 
-// Legacy paths for migration
-const legacyProfilesPath = path.join(app.getPath("userData"), "profiles.json")
-const legacyPersonasPath = path.join(app.getPath("userData"), "personas.json")
+// Legacy paths for migration (in the same dataFolder)
+const legacyProfilesPath = path.join(dataFolder, "profiles.json")
+const legacyPersonasPath = path.join(dataFolder, "personas.json")
+
+// One-time migration: old paths used app.getPath("userData") which resolves to a
+// different directory than dataFolder in some Electron configurations (e.g. dev mode).
+const oldUserDataPath = app.getPath("userData")
+const oldAgentProfilesPath = path.join(oldUserDataPath, "agent-profiles.json")
+const oldAgentConversationsPath = path.join(oldUserDataPath, "agent-profile-conversations.json")
 
 /**
  * Type for agent profile conversations storage.
@@ -118,6 +120,27 @@ class AgentProfileService {
       }
     } catch (error) {
       logApp("Error loading agent profiles:", error)
+    }
+
+    // One-time migration: if profiles exist at the old userData path, copy them to the
+    // new dataFolder path (fixes path inconsistency introduced in earlier versions).
+    try {
+      if (fs.existsSync(oldAgentProfilesPath)) {
+        logApp(`Migrating agent profiles from old path: ${oldAgentProfilesPath}`)
+        const data = JSON.parse(fs.readFileSync(oldAgentProfilesPath, "utf8")) as AgentProfilesData
+        this.profilesData = data
+        fs.mkdirSync(dataFolder, { recursive: true })
+        this.saveProfiles()
+        // Also migrate conversations if they exist at the old path
+        if (fs.existsSync(oldAgentConversationsPath) && !fs.existsSync(agentProfileConversationsPath)) {
+          fs.copyFileSync(oldAgentConversationsPath, agentProfileConversationsPath)
+          logApp(`Migrated agent conversations from old path`)
+        }
+        logApp(`Agent profiles migrated successfully to: ${agentProfilesPath}`)
+        return data
+      }
+    } catch (error) {
+      logApp("Error migrating agent profiles from old path:", error)
     }
 
     // Try to migrate from legacy formats

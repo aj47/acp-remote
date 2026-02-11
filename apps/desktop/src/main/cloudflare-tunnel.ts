@@ -14,19 +14,37 @@ function debugLog(message: string): void {
 }
 
 /**
- * Print a QR code for the tunnel URL to the terminal when --qr flag is set
+ * Print a QR code for the tunnel URL to the terminal when --qr flag is set.
+ * The QR code encodes an acpremote:// deep link so the mobile app can scan it
+ * and automatically configure the base URL and API key.
  */
 async function printTunnelQR(url: string): Promise<void> {
   if (!isPrintQR()) return
   try {
+    const cfg = configStore.get()
+    const apiKey = cfg.remoteServerApiKey
+
+    // Build the deep link the mobile app expects:
+    // acpremote://config?baseUrl=<tunnelUrl>/v1&apiKey=<apiKey>
+    let qrContent: string
+    if (apiKey) {
+      const baseUrl = `${url}/v1`
+      qrContent = `acpremote://config?baseUrl=${encodeURIComponent(baseUrl)}&apiKey=${encodeURIComponent(apiKey)}`
+    } else {
+      // Fall back to raw URL if API key is not yet generated
+      qrContent = url
+    }
+
     const QRCode = await import("qrcode")
-    const qr = await QRCode.toString(url, { type: "terminal", small: true })
+    const qr = await QRCode.toString(qrContent, { type: "terminal", small: true })
     // eslint-disable-next-line no-console
     console.log("\n📱 Scan QR code to connect:\n")
     // eslint-disable-next-line no-console
     console.log(qr)
     // eslint-disable-next-line no-console
-    console.log(`🔗 Tunnel URL: ${url}\n`)
+    console.log(`🔗 Tunnel URL: ${url}`)
+    // eslint-disable-next-line no-console
+    console.log(`🔑 Deep link: ${qrContent}\n`)
   } catch (err) {
     // eslint-disable-next-line no-console
     console.error("[cloudflare-tunnel] Failed to print QR code:", err)

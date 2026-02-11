@@ -7,7 +7,7 @@
     "orientation": "portrait",
     "icon": "./assets/speakmcp-icon.png",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
+    "newArchEnabled": false,
     "splash": {
       "image": "./assets/speakmcp-icon.png",
       "resizeMode": "contain",

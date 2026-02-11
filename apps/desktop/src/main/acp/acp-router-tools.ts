@@ -742,19 +742,26 @@ async function executeACPAgent(
   waitForResult: boolean
 ): Promise<object> {
   try {
-    // Check if agent exists in config
+    // Check agentProfileService first (new unified system where jenny and other personas live)
+    const agentProfile = agentProfileService.getByName(args.agentName);
+
+    // Fall back to legacy config.acpAgents for backward compatibility
     const config = configStore.get();
-    const agentConfig = config.acpAgents?.find((a) => a.name === args.agentName);
-    if (!agentConfig) {
+    const legacyConfig = config.acpAgents?.find((a) => a.name === args.agentName);
+
+    if (!agentProfile && !legacyConfig) {
       return { success: false, error: `Agent "${args.agentName}" not found in configuration` };
     }
 
-    if (agentConfig.enabled === false) {
+    const isEnabled = agentProfile ? agentProfile.enabled !== false : legacyConfig!.enabled !== false;
+    if (!isEnabled) {
       return { success: false, error: `Agent "${args.agentName}" is disabled` };
     }
 
-    // Ensure stdio agents are spawned
-    if (agentConfig.connection.type === 'stdio') {
+    const connectionType = agentProfile?.connection.type ?? legacyConfig?.connection.type;
+
+    // Ensure stdio/acp agents are spawned (acp type is process-based, same as stdio)
+    if (connectionType === 'stdio' || connectionType === 'acp') {
       const agentStatus = acpService.getAgentStatus(args.agentName);
       if (agentStatus?.status !== 'ready') {
         try {
@@ -785,10 +792,15 @@ async function executeACPAgent(
       }
     };
 
+    // Build an effective connection config accepted by executeACPAgentAsync
+    const effectiveConn = {
+      connection: agentProfile ? agentProfile.connection : legacyConfig!.connection,
+    };
+
     if (waitForResult) {
       return executeACPAgentSync(subAgentState, args, registerSessionMapping);
     } else {
-      return executeACPAgentAsync(subAgentState, args, agentConfig, parentSessionId, registerSessionMapping);
+      return executeACPAgentAsync(subAgentState, args, effectiveConn, parentSessionId, registerSessionMapping);
     }
   } catch (error) {
     return { success: false, error: error instanceof Error ? error.message : String(error) };
@@ -847,7 +859,7 @@ async function executeACPAgentSync(
 function executeACPAgentAsync(
   subAgentState: DelegatedRun,
   args: { agentName: string; task: string; context?: string },
-  agentConfig: NonNullable<ReturnType<typeof configStore.get>['acpAgents']>[number],
+  agentConfig: { connection: { type: string; baseUrl?: string } },
   parentSessionId: string | undefined,
   registerSessionMapping: () => void
 ): DelegationResult {
@@ -1048,17 +1060,22 @@ export async function handleCheckAgentStatus(args: { runId: string; historyLengt
  */
 export async function handleSpawnAgent(args: { agentName: string }): Promise<object> {
   try {
-    // Check if agent exists in config
+    // Check agentProfileService first (new unified system)
+    const agentProfile = agentProfileService.getByName(args.agentName);
+
+    // Fall back to legacy config.acpAgents for backward compatibility
     const config = configStore.get();
-    const agentConfig = config.acpAgents?.find((a) => a.name === args.agentName);
-    if (!agentConfig) {
+    const legacyConfig = config.acpAgents?.find((a) => a.name === args.agentName);
+
+    if (!agentProfile && !legacyConfig) {
       return {
         success: false,
         error: `Agent "${args.agentName}" not found in configuration`,
       };
     }
 
-    if (agentConfig.enabled === false) {
+    const isEnabled = agentProfile ? agentProfile.enabled !== false : legacyConfig!.enabled !== false;
+    if (!isEnabled) {
       return {
         success: false,
         error: `Agent "${args.agentName}" is disabled`,
@@ -1077,8 +1094,10 @@ export async function handleSpawnAgent(args: { agentName: string }): Promise<obj
       };
     }
 
-    // Only stdio agents can be spawned
-    if (agentConfig.connection.type !== 'stdio') {
+    const connectionType = agentProfile?.connection.type ?? legacyConfig?.connection.type;
+
+    // Only stdio and acp agents can be spawned (acp is process-based, same as stdio)
+    if (connectionType !== 'stdio' && connectionType !== 'acp') {
       return {
         success: false,
         error: `Agent "${args.agentName}" is a remote agent and cannot be spawned. It should be started externally.`,
@@ -1109,10 +1128,14 @@ export async function handleSpawnAgent(args: { agentName: string }): Promise<obj
  */
 export async function handleStopAgent(args: { agentName: string }): Promise<object> {
   try {
-    // Check if agent exists in config
+    // Check agentProfileService first (new unified system)
+    const agentProfile = agentProfileService.getByName(args.agentName);
+
+    // Fall back to legacy config.acpAgents for backward compatibility
     const config = configStore.get();
-    const agentConfig = config.acpAgents?.find((a) => a.name === args.agentName);
-    if (!agentConfig) {
+    const legacyConfig = config.acpAgents?.find((a) => a.name === args.agentName);
+
+    if (!agentProfile && !legacyConfig) {
       return {
         success: false,
         error: `Agent "${args.agentName}" not found in configuration`,

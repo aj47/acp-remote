@@ -7,6 +7,8 @@ import { configStore, recordingsFolder } from "./config"
 import { diagnosticsService } from "./diagnostics"
 import { mcpService, MCPToolResult, handleWhatsAppToggle } from "./mcp-service"
 import { processTranscriptWithAgentMode } from "./llm"
+import { processTranscriptWithACPAgent } from "./acp-main-agent"
+import { agentProfileService } from "./agent-profile-service"
 import { state, agentProcessManager, agentSessionStateManager } from "./state"
 import { conversationService } from "./conversation-service"
 import { AgentProgressUpdate, SessionProfileSnapshot } from "../shared/types"
@@ -153,6 +155,72 @@ async function runAgent(options: RunAgentOptions): Promise<{
 }> {
   const { prompt, conversationId: inputConversationId, onProgress } = options
   const cfg = configStore.get()
+
+  // Check if ACP main agent mode is enabled - route to ACP agent instead of LLM API
+  // This mirrors the logic in tipc.ts processWithAgentMode
+  if (cfg.mainAgentMode === "acp" && cfg.mainAgentName) {
+    // Check if the selected main agent is an internal profile
+    // Internal profiles use the direct LLM path instead of external ACP agents
+    const mainAgentProfile = agentProfileService.getByName(cfg.mainAgentName)
+    const isInternalProfile = mainAgentProfile?.connection.type === "internal"
+
+    if (!isInternalProfile) {
+      // ACP agent - route to processTranscriptWithACPAgent
+      diagnosticsService.logInfo("remote-server", `ACP mode enabled, routing to ACP agent: ${cfg.mainAgentName}`)
+
+      // Generate conversation ID if not provided
+      let conversationId = inputConversationId
+      if (!conversationId) {
+        const newConversation = await conversationService.createConversationWithId(
+          conversationService.generateConversationIdPublic(),
+          prompt,
+          "user"
+        )
+        conversationId = newConversation.id
+      }
+
+      // Create conversation title for session tracking
+      const conversationTitle = prompt.length > 50 ? prompt.substring(0, 50) + "..." : prompt
+
+      // Start tracking this agent session
+      const startSnoozed = !cfg.remoteServerAutoShowPanel
+      const sessionId = agentSessionTracker.startSession(conversationId, conversationTitle, startSnoozed)
+
+      // Process with ACP agent
+      const result = await processTranscriptWithACPAgent(prompt, {
+        agentName: cfg.mainAgentName,
+        conversationId,
+        sessionId,
+        onProgress,
+      })
+
+      // Save assistant response to conversation history
+      if (conversationId && result.response) {
+        await conversationService.addMessageToConversation(
+          conversationId,
+          result.response,
+          "assistant"
+        )
+      }
+
+      // Mark session as completed
+      if (result.success) {
+        agentSessionTracker.completeSession(sessionId, "ACP agent completed successfully")
+      } else {
+        agentSessionTracker.errorSession(sessionId, result.error || "Unknown error")
+      }
+
+      // Return in the expected format
+      return {
+        content: result.response || result.error || "No response from agent",
+        conversationId,
+        conversationHistory: [], // ACP agent doesn't return detailed history in the same format
+      }
+    }
+
+    // Internal profile selected in ACP mode - fall through to use the direct LLM path
+    diagnosticsService.logInfo("remote-server", `ACP mode with internal profile "${cfg.mainAgentName}", using direct LLM path`)
+  }
 
   // Set agent mode state for process management - ensure clean state
   state.isAgentModeActive = true
