@@ -19,11 +19,17 @@ The [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) is an open s
 |----------|--------------|
 | **🤖 ACP Agents** | Connect to Claude Code, Augment, Gemini CLI, Codex CLI, and any ACP-compatible agent |
 | **🎤 Voice Control** | Hold-to-record voice commands, 30+ languages, auto-transcription |
-| **📱 Mobile App** | Control your desktop agents from iOS/Android via secure tunnel |
+| **📱 Mobile App** | Control your desktop agents from iOS/Android via secure Cloudflare Tunnel |
 | **🔧 MCP Tools** | Pass MCP servers to agents for filesystem, browser, database access |
+| **🧠 Skills** | Dynamic instruction files that enhance agent capabilities on specialized tasks |
+| **💾 Memories** | Persistent storage of agent interactions with key findings and tags |
+| **👤 Personas** | Custom agent profiles with guidelines, system prompts, and per-profile MCP/skill configs |
+| **💬 WhatsApp** | Send and receive WhatsApp messages via built-in MCP server with auto-reply |
 | **🔊 TTS** | Text-to-speech responses via OpenAI, Groq, or Gemini |
-| **⚙️ Model Selection** | Switch between agent models and modes without chat commands |
-| **🎨 UX** | Dark/light themes, conversation history, real-time progress |
+| **⚙️ Model Selection** | Switch between agent models and modes via UI without chat commands |
+| **🔐 Tool Approval** | Security workflow for approving sensitive MCP tool executions |
+| **📋 Sessions** | Conversation history with full session management |
+| **🎨 UX** | Dark/light themes, QR code mobile setup, real-time progress |
 
 ## 🚀 Quick Start
 
@@ -62,6 +68,37 @@ Control your ACP agents from your phone:
 3. **Chat**: Send voice or text messages to your agent from anywhere
 
 The mobile app connects securely to your desktop via Cloudflare Tunnel — your agent runs locally, but you can control it remotely.
+
+## 🧠 Skills
+
+Skills are dynamic instruction files that enhance agent capabilities on specialized tasks. They use a simple SKILL.md format:
+
+```markdown
+---
+name: my-skill
+description: What this skill does
+---
+
+Your instructions here...
+```
+
+Skills are loaded from `~/.speakmcp/skills/` and can be:
+- **Local** — Created directly in the app
+- **Imported** — Loaded from SKILL.md files
+- **External** — Synced from `~/.augment/skills/` or other directories
+
+Configure which skills are enabled per profile for fine-grained control.
+
+## 💬 WhatsApp Integration
+
+The built-in WhatsApp MCP server enables messaging capabilities:
+
+- **Send/receive messages** to any WhatsApp contact
+- **Auto-reply** — AI agent responds to incoming messages
+- **Chat history** — Access recent conversations
+- **QR code auth** — Easy setup via WhatsApp mobile app
+
+Configure in Settings → WhatsApp, then ask the agent to "connect to WhatsApp" to scan the QR code.
 
 ## 🔧 Configuration
 
