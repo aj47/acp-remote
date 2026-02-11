@@ -11,6 +11,7 @@ import { useTunnelConnection } from '../store/tunnelConnection';
 import { useProfile } from '../store/profile';
 import { usePushNotifications } from '../lib/pushNotifications';
 import { SettingsApiClient, Profile, MCPServer, Settings } from '../lib/settingsApi';
+import { WebQRScanner } from '../ui/WebQRScanner';
 
 function parseQRCode(data: string): { baseUrl?: string; apiKey?: string; model?: string } | null {
   try {
@@ -384,8 +385,9 @@ export default function SettingsScreen({ navigation }: any) {
 
   const handleScanQR = async () => {
     if (Platform.OS === 'web') {
-      setUrlPasteText('');
-      setShowUrlPaste(true);
+      // On web, show the web QR scanner
+      setScanned(false);
+      setShowScanner(true);
       return;
     }
     if (!permission?.granted) {
@@ -396,6 +398,28 @@ export default function SettingsScreen({ navigation }: any) {
     }
     setScanned(false);
     setShowScanner(true);
+  };
+
+  // Handle web QR scan result
+  const handleWebQRScan = (data: string) => {
+    const params = parseQRCode(data);
+    if (params) {
+      setDraft(prev => ({
+        ...prev,
+        ...(params.baseUrl && { baseUrl: params.baseUrl }),
+        ...(params.apiKey && { apiKey: params.apiKey }),
+        ...(params.model && { model: params.model }),
+      }));
+      setShowScanner(false);
+    } else {
+      // Invalid QR - show URL paste as fallback
+      setShowScanner(false);
+      setUrlPasteText('');
+      setShowUrlPaste(true);
+      if (Platform.OS === 'web') {
+        window.alert('Invalid QR code format. Please paste the config URL manually.');
+      }
+    }
   };
 
   const handleBarCodeScanned = ({ data }: { data: string }) => {
@@ -494,7 +518,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>API Configuration</Text>
 
         <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
-          <Text style={styles.scanButtonText}>{Platform.OS === 'web' ? '🔗 Paste Config URL' : '📷 Scan QR Code'}</Text>
+          <Text style={styles.scanButtonText}>📷 Scan QR Code</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>API Key</Text>
@@ -732,6 +756,7 @@ export default function SettingsScreen({ navigation }: any) {
 
       </ScrollView>
 
+      {/* Native QR Scanner Modal */}
       {Platform.OS !== 'web' && (
         <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
           <View style={styles.scannerContainer}>
@@ -754,7 +779,17 @@ export default function SettingsScreen({ navigation }: any) {
         </Modal>
       )}
 
-      {/* URL Paste Modal (web only) */}
+      {/* Web QR Scanner Modal */}
+      {Platform.OS === 'web' && (
+        <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
+          <WebQRScanner
+            onScan={handleWebQRScan}
+            onClose={() => setShowScanner(false)}
+          />
+        </Modal>
+      )}
+
+      {/* URL Paste Modal (fallback for web) */}
       <Modal
         visible={showUrlPaste}
         animationType="slide"
