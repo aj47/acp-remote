@@ -59,15 +59,36 @@ The [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) is an open s
 | `Ctrl+T` | Text input mode |
 | `Ctrl+Shift+Escape` | Emergency stop |
 
-## 📱 Mobile App
+## 📱 Mobile & Web App
 
-Control your ACP agents from your phone:
+Control your ACP agents from your phone or any browser:
+
+### Option 1: Web App (Easiest)
 
 1. **Desktop**: Enable remote access in Settings → enable Cloudflare tunnel
-2. **Mobile**: Scan the QR code or enter the connection URL
-3. **Chat**: Send voice or text messages to your agent from anywhere
+2. **Open**: Visit **[acp-remote.pages.dev](https://acp-remote.pages.dev)** on any device
+3. **Connect**: Scan the QR code or paste the connection URL from your desktop app
+4. **Chat**: Send voice or text messages to your agent from anywhere
 
-The mobile app connects securely to your desktop via Cloudflare Tunnel — your agent runs locally, but you can control it remotely.
+### Option 2: Native Mobile App
+
+1. **Download**: Get the app from [App Store](#) or [Google Play](#) *(coming soon)*
+2. **Desktop**: Enable remote access in Settings → enable Cloudflare tunnel
+3. **Connect**: Scan the QR code shown in the desktop app
+4. **Chat**: Full native experience with push notifications
+
+### Features
+
+| Feature | Web | Mobile |
+|---------|-----|--------|
+| Voice input | ✅ (Chrome/Edge) | ✅ |
+| Text chat | ✅ | ✅ |
+| QR code scanning | ✅ (camera) | ✅ |
+| TTS voice selection | ✅ | ✅ |
+| Push notifications | ❌ | ✅ |
+| Offline support | ❌ | ✅ |
+
+The app connects securely to your desktop via Cloudflare Tunnel — your agent runs locally, but you can control it remotely from anywhere.
 
 ## 🧠 Skills
 
