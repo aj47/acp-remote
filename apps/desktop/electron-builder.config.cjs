@@ -84,8 +84,8 @@ try {
 
 /** @type {import('electron-builder').Configuration} */
 module.exports = {
-  appId: "app.speakmcp",
-  productName: "SpeakMCP",
+  appId: "app.acpremote",
+  productName: "ACP Remote",
   icon: "build/icon.png",
   directories: {
     buildResources: "build",
@@ -106,7 +106,7 @@ module.exports = {
   asar: false,
   win: {
     icon: "build/icon.ico",
-    executableName: "speakmcp",
+    executableName: "acp-remote",
     target: [
       {
         target: "nsis",
@@ -203,18 +203,18 @@ module.exports = {
     ],
     extendInfo: {
       NSCameraUsageDescription:
-        "SpeakMCP may request camera access for enhanced AI features.",
+        "ACP Remote may request camera access for enhanced AI features.",
       NSMicrophoneUsageDescription:
-        "SpeakMCP requires microphone access for voice dictation and transcription.",
+        "ACP Remote requires microphone access for voice dictation and transcription.",
       NSDocumentsFolderUsageDescription:
-        "SpeakMCP may access your Documents folder to save transcriptions and settings.",
+        "ACP Remote may access your Documents folder to save transcriptions and settings.",
       NSDownloadsFolderUsageDescription:
-        "SpeakMCP may access your Downloads folder to save exported files.",
+        "ACP Remote may access your Downloads folder to save exported files.",
       LSMinimumSystemVersion: "12.0.0",
       CFBundleURLTypes: [
         {
-          CFBundleURLName: "SpeakMCP Protocol",
-          CFBundleURLSchemes: ["speakmcp"],
+          CFBundleURLName: "ACP Remote Protocol",
+          CFBundleURLSchemes: ["acpremote"],
         },
       ],
     },
@@ -240,18 +240,18 @@ module.exports = {
     cscInstallerLink: process.env.CSC_INSTALLER_LINK,
     extendInfo: {
       NSCameraUsageDescription:
-        "SpeakMCP may request camera access for enhanced AI features.",
+        "ACP Remote may request camera access for enhanced AI features.",
       NSMicrophoneUsageDescription:
-        "SpeakMCP requires microphone access for voice dictation and transcription.",
+        "ACP Remote requires microphone access for voice dictation and transcription.",
       NSDocumentsFolderUsageDescription:
-        "SpeakMCP may access your Documents folder to save transcriptions and settings.",
+        "ACP Remote may access your Documents folder to save transcriptions and settings.",
       NSDownloadsFolderUsageDescription:
-        "SpeakMCP may access your Downloads folder to save exported files.",
+        "ACP Remote may access your Downloads folder to save exported files.",
       LSMinimumSystemVersion: "12.0.0",
       CFBundleURLTypes: [
         {
-          CFBundleURLName: "SpeakMCP Protocol",
-          CFBundleURLSchemes: ["speakmcp"],
+          CFBundleURLName: "ACP Remote Protocol",
+          CFBundleURLSchemes: ["acpremote"],
         },
       ],
     },
@@ -266,18 +266,18 @@ module.exports = {
     category: "public.app-category.productivity",
     extendInfo: {
       NSCameraUsageDescription:
-        "SpeakMCP may request camera access for enhanced AI features.",
+        "ACP Remote may request camera access for enhanced AI features.",
       NSMicrophoneUsageDescription:
-        "SpeakMCP requires microphone access for voice dictation and transcription.",
+        "ACP Remote requires microphone access for voice dictation and transcription.",
       NSDocumentsFolderUsageDescription:
-        "SpeakMCP may access your Documents folder to save transcriptions and settings.",
+        "ACP Remote may access your Documents folder to save transcriptions and settings.",
       NSDownloadsFolderUsageDescription:
-        "SpeakMCP may access your Downloads folder to save exported files.",
+        "ACP Remote may access your Downloads folder to save exported files.",
       LSMinimumSystemVersion: "10.15.0",
       CFBundleURLTypes: [
         {
-          CFBundleURLName: "SpeakMCP Protocol",
-          CFBundleURLSchemes: ["speakmcp"],
+          CFBundleURLName: "ACP Remote Protocol",
+          CFBundleURLSchemes: ["acpremote"],
         },
       ],
     },
@@ -299,23 +299,23 @@ module.exports = {
   },
   linux: {
     target: ["AppImage", "deb"],
-    maintainer: "SpeakMCP <hi@techfren.net>",
-    vendor: "SpeakMCP",
+    maintainer: "ACP Remote <hi@techfren.net>",
+    vendor: "ACP Remote",
     category: "Utility",
     synopsis: "AI-powered voice assistant with MCP integration",
-    description: "SpeakMCP is an AI-powered dictation and voice assistant tool with Model Context Protocol (MCP) integration for enhanced productivity.",
+    description: "ACP Remote is an AI-powered dictation and voice assistant tool with Model Context Protocol (MCP) integration for enhanced productivity.",
     desktop: {
-      Name: "SpeakMCP",
+      Name: "ACP Remote",
       Comment: "AI-powered voice assistant with MCP integration",
       GenericName: "Voice Assistant",
       Keywords: "voice;dictation;ai;assistant;mcp;transcription;",
       Categories: "Utility;Audio;Development;",
-      StartupWMClass: "speakmcp",
+      StartupWMClass: "acp-remote",
       StartupNotify: false,
       Terminal: false,
       Type: "Application",
     },
-    executableName: "speakmcp",
+    executableName: "acp-remote",
     extraResources: [
       {
         from: "resources/bin/speakmcp-rs",
@@ -394,7 +394,7 @@ module.exports = {
   publish: {
     provider: "github",
     owner: "aj47",
-    repo: "SpeakMCP",
+    repo: "acp-remote",
   },
   removePackageScripts: true,
 }

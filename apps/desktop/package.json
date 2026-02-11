@@ -4,8 +4,8 @@
   "type": "module",
   "description": "AI-powered dictation tool with MCP integration",
   "main": "./out/main/index.js",
-  "author": "SpeakMCP",
-  "homepage": "https://github.com/aj47/SpeakMCP",
+  "author": "ACP Remote",
+  "homepage": "https://github.com/aj47/acp-remote",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint . --ext .js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix",

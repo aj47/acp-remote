@@ -54,7 +54,7 @@ registerServeSchema()
 
 app.whenReady().then(() => {
   initDebugFlags(process.argv)
-  logApp("SpeakMCP starting up...")
+  logApp("ACP Remote starting up...")
 
   initializeDeepLinkHandling()
   logApp("Deep link handling initialized")

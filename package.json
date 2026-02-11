@@ -1,8 +1,8 @@
 {
-  "name": "speakmcp-monorepo",
+  "name": "acp-remote-monorepo",
   "version": "1.3.0",
   "private": true,
-  "description": "SpeakMCP monorepo - AI-powered dictation with MCP integration",
+  "description": "ACP Remote monorepo - AI-powered dictation with MCP integration",
   "scripts": {
     "dev": "pnpm --filter @speakmcp/desktop dev",
     "dev:mobile": "pnpm --filter @speakmcp/mobile start",

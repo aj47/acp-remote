@@ -5,7 +5,7 @@
  * It automatically detects the platform and runs the appropriate
  * build command.
  * 
- * Issue: https://github.com/aj47/SpeakMCP/issues/595
+ * Issue: https://github.com/aj47/acp-remote/issues/595
  */
 
 import { execSync, spawn } from "child_process"

@@ -83,7 +83,7 @@ function createTheme(colorScheme: 'light' | 'dark') {
       color: colors.foreground,
       fontSize: 16,
     },
-    // Modern panel style matching SpeakMCP's .modern-panel
+    // Modern panel style matching ACP Remote's .modern-panel
     modernPanel: {
       backgroundColor: colors.card,
       borderWidth: 1,

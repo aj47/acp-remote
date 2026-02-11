@@ -15,8 +15,8 @@ import { SettingsApiClient, Profile, MCPServer, Settings, ModelInfo } from '../l
 function parseQRCode(data: string): { baseUrl?: string; apiKey?: string; model?: string } | null {
   try {
     const parsed = Linking.parse(data);
-    // Handle speakmcp://config?baseUrl=...&apiKey=...&model=...
-    if (parsed.scheme === 'speakmcp' && (parsed.path === 'config' || parsed.hostname === 'config')) {
+    // Handle acpremote://config?baseUrl=...&apiKey=...&model=...
+    if (parsed.scheme === 'acpremote' && (parsed.path === 'config' || parsed.hostname === 'config')) {
       const { baseUrl, apiKey, model } = parsed.queryParams || {};
       if (baseUrl || apiKey || model) {
         return {
@@ -69,7 +69,7 @@ export default function SettingsScreen({ navigation }: any) {
   const [isLoadingRemote, setIsLoadingRemote] = useState(false);
   const [remoteError, setRemoteError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
-  // Track if the server is a SpeakMCP desktop server (supports our settings API)
+  // Track if the server is an ACP Remote desktop server (supports our settings API)
   const [isSpeakMCPServer, setIsSpeakMCPServer] = useState(false);
 
   // Profile import/export state
@@ -148,15 +148,15 @@ export default function SettingsScreen({ navigation }: any) {
         successCount++;
       }
 
-      // Consider it a SpeakMCP server if at least one endpoint succeeded
-      // This gates the Desktop Settings section for non-SpeakMCP endpoints (e.g., OpenAI)
+      // Consider it an ACP Remote server if at least one endpoint succeeded
+      // This gates the Desktop Settings section for non-ACP Remote endpoints (e.g., OpenAI)
       setIsSpeakMCPServer(successCount > 0);
 
       // Show error if any endpoint failed but at least one succeeded
       if (errors.length > 0 && successCount > 0) {
         setRemoteError(`Failed to load: ${errors.join(', ')}`);
       } else if (successCount === 0) {
-        // All endpoints failed - not a SpeakMCP server
+        // All endpoints failed - not an ACP Remote server
         setIsSpeakMCPServer(false);
       }
     } catch (error: any) {
@@ -758,7 +758,7 @@ export default function SettingsScreen({ navigation }: any) {
           Receive notifications when new messages arrive from your AI assistant
         </Text>
 
-        {/* Remote Settings Section - only show when connected to a SpeakMCP desktop server */}
+        {/* Remote Settings Section - only show when connected to an ACP Remote desktop server */}
         {settingsClient && (isLoadingRemote || isSpeakMCPServer) && (
           <>
             <Text style={styles.sectionTitle}>Desktop Settings</Text>
@@ -1042,7 +1042,7 @@ export default function SettingsScreen({ navigation }: any) {
           <View style={styles.scannerOverlay}>
             <View style={styles.scannerFrame} />
             <Text style={styles.scannerText}>
-              {scanned ? 'Invalid QR code format' : 'Scan a SpeakMCP QR code'}
+              {scanned ? 'Invalid QR code format' : 'Scan an ACP Remote QR code'}
             </Text>
           </View>
           <TouchableOpacity style={styles.closeButton} onPress={() => setShowScanner(false)}>

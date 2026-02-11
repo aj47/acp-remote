@@ -484,7 +484,7 @@ export function setPanelMode(mode: "normal" | "agent" | "textInput") {
   // When switching to agent mode, ensure panel is resized appropriately
   // This fixes the issue where panel stays at waveform size (110px) when
   // transitioning from voice input to progress pane (needs 200px+)
-  // See: https://github.com/aj47/SpeakMCP/issues/913
+  // See: https://github.com/aj47/acp-remote/issues/913
   if (mode === "agent") {
     const win = WINDOWS.get("panel")
     if (win) {
@@ -836,7 +836,7 @@ export function resizePanelForAgentMode() {
  * This ensures the panel is at least TEXT_INPUT_MIN_HEIGHT tall for usability.
  * This fixes the issue where the panel was too small for text input after
  * being shrunk for waveform recording.
- * See: https://github.com/aj47/SpeakMCP/issues/840
+ * See: https://github.com/aj47/acp-remote/issues/840
  */
 export function resizePanelForTextInput() {
   const win = WINDOWS.get("panel")
@@ -879,7 +879,7 @@ export function resizePanelToNormal() {
  * This shrinks the panel height to WAVEFORM_MIN_HEIGHT while keeping the current width.
  * This fixes the issue where the panel had too much negative space when showing
  * the waveform after being sized for agent mode.
- * See: https://github.com/aj47/SpeakMCP/issues/817
+ * See: https://github.com/aj47/acp-remote/issues/817
  */
 export function resizePanelForWaveform() {
   const win = WINDOWS.get("panel")

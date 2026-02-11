@@ -29,7 +29,7 @@ function parseDeepLink(url: string | null) {
   if (!url) return null;
   try {
     const parsed = Linking.parse(url);
-    // Handle speakmcp://config?baseUrl=...&apiKey=...&model=...
+    // Handle acpremote://config?baseUrl=...&apiKey=...&model=...
     if (parsed.path === 'config' || parsed.hostname === 'config') {
       const { baseUrl, apiKey, model } = parsed.queryParams || {};
       if (baseUrl || apiKey || model) {
@@ -249,7 +249,7 @@ function Navigation() {
                     <Stack.Screen
                       name="Settings"
                       component={SettingsScreen}
-                      options={{ title: 'SpeakMCP' }}
+                      options={{ title: 'ACP Remote' }}
                     />
                     <Stack.Screen
                       name="Sessions"

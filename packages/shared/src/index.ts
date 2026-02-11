@@ -1,7 +1,7 @@
 /**
  * @speakmcp/shared
  *
- * Shared design tokens, types, and utilities for SpeakMCP apps
+ * Shared design tokens, types, and utilities for ACP Remote apps
  */
 
 export * from './colors';

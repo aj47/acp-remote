@@ -701,8 +701,8 @@ export async function startRemoteServer() {
     try {
       const serverStatus = mcpService.getServerStatus()
       const servers = Object.entries(serverStatus)
-        // Filter out the built-in speakmcp-settings pseudo-server as it's not user-toggleable
-        .filter(([name]) => name !== "speakmcp-settings")
+        // Filter out the built-in acpremote-settings pseudo-server as it's not user-toggleable
+        .filter(([name]) => name !== "acpremote-settings")
         .map(([name, status]) => ({
           name,
           connected: status.connected,
@@ -1321,7 +1321,7 @@ export async function startRemoteServer() {
     }
   })
 
-  // MCP Protocol Endpoints - Expose SpeakMCP builtin tools to external agents
+  // MCP Protocol Endpoints - Expose ACP Remote builtin tools to external agents
   // These endpoints implement a simplified MCP-over-HTTP protocol
 
   // POST /mcp/tools/list - List all available builtin tools

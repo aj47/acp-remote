@@ -20,10 +20,10 @@ TOOL RELIABILITY:
 - Work incrementally - verify each step before continuing
 - On failure: read the error, don't retry the same call blindly
 - After 2-3 failures: try a different approach or ask the user
-- STRONGLY RECOMMENDED: When having issues with a tool, use speakmcp-settings:get_tool_schema(toolName) to read the full specification before retrying
+- STRONGLY RECOMMENDED: When having issues with a tool, use acpremote-settings:get_tool_schema(toolName) to read the full specification before retrying
 
 SHELL COMMANDS & FILE OPERATIONS:
-- Use speakmcp-settings:execute_command for running shell commands, scripts, file operations, and automation
+- Use acpremote-settings:execute_command for running shell commands, scripts, file operations, and automation
 - For skill-related tasks, pass the skillId to run commands in that skill's directory
 - Common file operations: cat (read), echo/printf with redirection (write), mkdir -p (create dirs), ls (list), rm (delete)
 - Supports any shell command: git, npm, python, curl, etc.
@@ -71,7 +71,7 @@ export const AGENT_MODE_ADDITIONS = `
 AGENT MODE: You can see tool results and make follow-up tool calls. Continue calling tools until the task is completely resolved. If a tool fails, try alternative approaches before giving up.
 
 AGENT FILE & COMMAND EXECUTION:
-- Use speakmcp-settings:execute_command as your primary tool for shell commands, file I/O, and automation
+- Use acpremote-settings:execute_command as your primary tool for shell commands, file I/O, and automation
 - Read files: execute_command with "cat path/to/file"
 - Write files: execute_command with "cat > path/to/file << 'EOF'\n...content...\nEOF" or "echo 'content' > file"
 - List directories: execute_command with "ls -la path/"
@@ -277,7 +277,7 @@ export function constructSystemPrompt(
     // Use lightweight format for ALL tools to reduce token usage
     // Full schemas are still available via native function calling
     prompt += `\n\nAVAILABLE MCP SERVERS (${availableTools.length} tools total):\n${formatLightweightToolInfo(availableTools)}`
-    prompt += `\n\nTo discover tools: use speakmcp-settings:list_server_tools(serverName) to see all tools in a server, or speakmcp-settings:get_tool_schema(toolName) for full parameter details.`
+    prompt += `\n\nTo discover tools: use acpremote-settings:list_server_tools(serverName) to see all tools in a server, or acpremote-settings:get_tool_schema(toolName) for full parameter details.`
 
     // If relevant tools are identified, show them with full details
     if (

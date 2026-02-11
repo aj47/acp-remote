@@ -870,8 +870,8 @@ class ACPService extends EventEmitter {
   ): Promise<ACPRequestPermissionResponse> {
     const { sessionId: acpSessionId, toolCall, options } = params
 
-    // Map ACP session ID to SpeakMCP session ID for UI routing
-    // The ACP agent uses its own session IDs, but SpeakMCP's UI tracks progress
+    // Map ACP session ID to ACP Remote session ID for UI routing
+    // The ACP agent uses its own session IDs, but ACP Remote's UI tracks progress
     // using its own session IDs from agentSessionTracker
     const speakMcpSessionId = getSpeakMcpSessionForAcpSession(acpSessionId) || acpSessionId
     logACP("NOTIFICATION", agentName, "session/request_permission", { acpSessionId, speakMcpSessionId })
@@ -888,7 +888,7 @@ class ACPService extends EventEmitter {
     })
 
     // Use the existing tool approval manager to request approval
-    // This integrates with SpeakMCP's existing UI approval flow
+    // This integrates with ACP Remote's existing UI approval flow
     const { approvalId, promise } = toolApprovalManager.requestApproval(
       speakMcpSessionId,
       toolCall.title,
@@ -1043,7 +1043,7 @@ class ACPService extends EventEmitter {
   ): Promise<{ content: string }> {
     const { sessionId: acpSessionId, path: filePath, line, limit } = params
 
-    // Map ACP session ID to SpeakMCP session ID for UI routing
+    // Map ACP session ID to ACP Remote session ID for UI routing
     const speakMcpSessionId = getSpeakMcpSessionForAcpSession(acpSessionId) || acpSessionId
 
     try {
@@ -1164,7 +1164,7 @@ class ACPService extends EventEmitter {
   ): Promise<Record<string, never>> {
     const { sessionId: acpSessionId, path: filePath, content } = params
 
-    // Map ACP session ID to SpeakMCP session ID for UI routing
+    // Map ACP session ID to ACP Remote session ID for UI routing
     const speakMcpSessionId = getSpeakMcpSessionForAcpSession(acpSessionId) || acpSessionId
 
     try {
@@ -1296,8 +1296,8 @@ class ACPService extends EventEmitter {
           // terminal: true,
         },
         clientInfo: {
-          name: "speakmcp",
-          title: "SpeakMCP",
+          name: "acpremote",
+          title: "ACP Remote",
           version: "1.2.0",
         },
       }) as {
@@ -1343,7 +1343,7 @@ class ACPService extends EventEmitter {
     }
 
     try {
-      // Build MCP servers list - optionally inject SpeakMCP builtin tools
+      // Build MCP servers list - optionally inject ACP Remote builtin tools
       const mcpServers: Array<{
         type?: string
         name: string
@@ -1351,23 +1351,23 @@ class ACPService extends EventEmitter {
         headers?: Array<{ name: string; value: string }>
       }> = []
 
-      // Check if we should inject SpeakMCP builtin tools
+      // Check if we should inject ACP Remote builtin tools
       const config = configStore.get()
       if (config.acpInjectBuiltinTools !== false && config.remoteServerEnabled) {
         const port = config.remoteServerPort || 3210
         const apiKey = config.remoteServerApiKey
 
         if (apiKey) {
-          // Add SpeakMCP's MCP server as an HTTP endpoint
+          // Add ACP Remote's MCP server as an HTTP endpoint
           mcpServers.push({
             type: "http",
-            name: "speakmcp-builtin",
+            name: "acpremote-builtin",
             url: `http://127.0.0.1:${port}/mcp`,
             headers: [
               { name: "Authorization", value: `Bearer ${apiKey}` },
             ],
           })
-          logACP("REQUEST", agentName, "session/new", `Injecting SpeakMCP builtin tools on port ${port}`)
+          logACP("REQUEST", agentName, "session/new", `Injecting ACP Remote builtin tools on port ${port}`)
         }
       }
 

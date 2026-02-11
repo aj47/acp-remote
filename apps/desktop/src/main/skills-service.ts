@@ -168,7 +168,7 @@ async function fetchGitHubDefaultBranch(owner: string, repo: string): Promise<st
     const response = await fetch(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "SpeakMCP-SkillInstaller",
+        "User-Agent": "ACPRemote-SkillInstaller",
       },
     })
     if (!response.ok) {
@@ -224,7 +224,7 @@ async function resolveRefAndPath(
       const response = await fetch(refUrl, {
         headers: {
           Accept: "application/vnd.github.v3+json",
-          "User-Agent": "SpeakMCP-SkillInstaller",
+          "User-Agent": "ACPRemote-SkillInstaller",
         },
       })
       
@@ -238,7 +238,7 @@ async function resolveRefAndPath(
       const tagResponse = await fetch(tagUrl, {
         headers: {
           Accept: "application/vnd.github.v3+json",
-          "User-Agent": "SpeakMCP-SkillInstaller",
+          "User-Agent": "ACPRemote-SkillInstaller",
         },
       })
       
@@ -292,7 +292,7 @@ async function listGitHubDirectory(owner: string, repo: string, ref: string, dir
     const response = await fetch(url, {
       headers: {
         Accept: "application/vnd.github.v3+json",
-        "User-Agent": "SpeakMCP-SkillInstaller",
+        "User-Agent": "ACPRemote-SkillInstaller",
       },
     })
     if (!response.ok) {
@@ -317,9 +317,9 @@ export const skillsPath = path.join(
 
 // Skills folder for SKILL.md files in App Data (user-writable location)
 // This is the single canonical location for all skills across all platforms:
-// - macOS: ~/Library/Application Support/app.speakmcp/skills/
-// - Windows: %APPDATA%/app.speakmcp/skills/
-// - Linux: ~/.config/app.speakmcp/skills/
+// - macOS: ~/Library/Application Support/app.acpremote/skills/
+// - Windows: %APPDATA%/app.acpremote/skills/
+// - Linux: ~/.config/app.acpremote/skills/
 export const skillsFolder = path.join(
   app.getPath("appData"),
   process.env.APP_ID,
@@ -782,7 +782,7 @@ cd "${skillsFolder}"
 \`\`\`
 
 After creating a skill file, it will be available on the next agent session.
-Use \`speakmcp-settings:execute_command\` with a skill's ID to run commands in the skill's directory.
+Use \`acpremote-settings:execute_command\` with a skill's ID to run commands in the skill's directory.
 `
 
     if (enabledSkills.length > 0) {
@@ -842,13 +842,13 @@ ${skillsContent}
     return `
 # Available Agent Skills
 
-The following skills are available. To use a skill, call \`speakmcp-settings:load_skill_instructions\` with the skill's ID to get the full instructions.
+The following skills are available. To use a skill, call \`acpremote-settings:load_skill_instructions\` with the skill's ID to get the full instructions.
 
 ${skillsContent}
 
 ## Skills Installation Directory
 Skills can be installed to: \`${skillsFolder}\`
-Use \`speakmcp-settings:execute_command\` with a skill's ID to run commands in that skill's directory.
+Use \`acpremote-settings:execute_command\` with a skill's ID to run commands in that skill's directory.
 `
   }
 

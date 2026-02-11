@@ -53,7 +53,7 @@ const accessAsync = promisify(access)
 
 /**
  * Internal server constants
- * Internal servers are managed by SpeakMCP and should always use bundled paths
+ * Internal servers are managed by ACP Remote and should always use bundled paths
  * rather than user-configured paths to prevent stale/incorrect paths from external workspaces
  */
 export const WHATSAPP_SERVER_NAME = "whatsapp"
@@ -100,7 +100,7 @@ export function getInternalWhatsAppServerPath(): string {
 
 /**
  * Check if a server is an internally-managed server
- * Internal servers have their paths managed by SpeakMCP, not user config
+ * Internal servers have their paths managed by ACP Remote, not user config
  */
 export function isInternalServer(serverName: string): boolean {
   return serverName === WHATSAPP_SERVER_NAME
@@ -665,7 +665,7 @@ export class MCPService {
       try {
         client = new Client(
           {
-            name: "speakmcp-mcp-client",
+            name: "acpremote-mcp-client",
             version: "1.0.0",
           },
           {
@@ -713,7 +713,7 @@ export class MCPService {
             // Create new client
             client = new Client(
               {
-                name: "speakmcp-mcp-client",
+                name: "acpremote-mcp-client",
                 version: "1.0.0",
               },
               {
@@ -1082,7 +1082,7 @@ export class MCPService {
     })
 
     // Also clean up disabled tools for non-existent servers
-    // BUT preserve built-in tools (speakmcp-settings) since they're not in mcpServers config
+    // BUT preserve built-in tools (acpremote-settings) since they're not in mcpServers config
     const orphanedDisabledTools = Array.from(this.disabledTools).filter((toolName) => {
       const serverName = toolName.includes(":")
         ? toolName.split(":")[0]
@@ -1988,7 +1988,7 @@ export class MCPService {
 
       client = new Client(
         {
-          name: "speakmcp-mcp-test-client",
+          name: "acpremote-mcp-test-client",
           version: "1.0.0",
         },
         {
@@ -2818,8 +2818,8 @@ export class MCPService {
         environment.WHATSAPP_LOG_MESSAGES = "true"
       }
 
-      // Set auth directory to SpeakMCP data folder
-      environment.WHATSAPP_AUTH_DIR = path.join(app.getPath("appData"), process.env.APP_ID || "speakmcp", "whatsapp-auth")
+      // Set auth directory to ACP Remote data folder
+      environment.WHATSAPP_AUTH_DIR = path.join(app.getPath("appData"), process.env.APP_ID || "acpremote", "whatsapp-auth")
     }
 
     return environment

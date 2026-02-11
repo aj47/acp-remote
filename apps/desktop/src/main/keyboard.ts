@@ -1278,7 +1278,7 @@ export function listenToKeyboardEvents() {
         // Show a notification if supported
         if (Notification.isSupported()) {
           const notification = new Notification({
-            title: "SpeakMCP: Hotkeys Not Working",
+            title: "ACP Remote: Hotkeys Not Working",
             body: "Global hotkeys require input group membership. Click for details.",
             urgency: "critical",
           })
@@ -1287,7 +1287,7 @@ export function listenToKeyboardEvents() {
               type: "warning",
               title: "Global Hotkeys Permission Required",
               message: "To use global hotkeys on Linux (especially Wayland), you need to add your user to the 'input' group.",
-              detail: "Run this command in a terminal:\n\nsudo usermod -aG input $USER\n\nThen log out and log back in for the change to take effect.\n\nThis is required because SpeakMCP needs to read keyboard events from /dev/input/ devices.",
+              detail: "Run this command in a terminal:\n\nsudo usermod -aG input $USER\n\nThen log out and log back in for the change to take effect.\n\nThis is required because ACP Remote needs to read keyboard events from /dev/input/ devices.",
               buttons: ["OK"],
             })
           })
@@ -1305,7 +1305,7 @@ export function listenToKeyboardEvents() {
 
         // eslint-disable-next-line no-console
         console.error(
-          "[SpeakMCP] Global hotkeys failed: Permission denied.\n" +
+          "[ACP Remote] Global hotkeys failed: Permission denied.\n" +
           "To fix this on Linux, add your user to the 'input' group:\n" +
           "  sudo usermod -aG input $USER\n" +
           "Then log out and log back in."

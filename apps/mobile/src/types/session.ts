@@ -18,7 +18,7 @@ export interface Session {
   createdAt: number;
   updatedAt: number;
   messages: ChatMessage[];
-  /** Server-side conversation ID for continuing conversations on the SpeakMCP server */
+  /** Server-side conversation ID for continuing conversations on the ACP Remote server */
   serverConversationId?: string;
   /** Optional metadata about the session */
   metadata?: {

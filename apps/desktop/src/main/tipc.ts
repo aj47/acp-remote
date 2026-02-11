@@ -3311,7 +3311,7 @@ export const router = {
         // We include displayName to satisfy the ACPAgentConfig contract and avoid undefined issues
         agents.push({
           name: input.agentName,
-          displayName: input.agentName === 'internal' ? 'SpeakMCP Internal' : input.agentName,
+          displayName: input.agentName === 'internal' ? 'ACP Remote Internal' : input.agentName,
           enabled: input.enabled,
           isInternal: input.agentName === 'internal',
           connection: { type: 'internal' as const }

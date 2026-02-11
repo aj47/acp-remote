@@ -152,7 +152,7 @@ export async function sendMessageNotification(
     : messagePreview
 
   await sendPushNotification({
-    title: "SpeakMCP",
+    title: "ACP Remote",
     body: truncatedPreview,
     data: {
       type: "message",

@@ -17,7 +17,7 @@ export async function checkForUpdatesMenuItem(_menuItem: MenuItem) {
   // Auto-updater is disabled - show message directing to GitHub releases
   await dialog.showMessageBox({
     title: "Check for Updates",
-    message: `To check for updates, please visit:\nhttps://github.com/aj47/SpeakMCP/releases`,
+    message: `To check for updates, please visit:\nhttps://github.com/aj47/acp-remote/releases`,
   })
 }
 

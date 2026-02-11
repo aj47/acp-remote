@@ -1937,7 +1937,7 @@ Return ONLY JSON per schema.`,
     }
 
     // Handle no-op iterations (no tool calls and no explicit completion)
-    // Fix for https://github.com/aj47/SpeakMCP/issues/443:
+    // Fix for https://github.com/aj47/acp-remote/issues/443:
     // Only terminate when needsMoreWork is EXPLICITLY false, not when undefined.
     // When LLM returns plain text without tool calls, needsMoreWork will be undefined,
     // and we should nudge to either use tools or provide a complete answer.

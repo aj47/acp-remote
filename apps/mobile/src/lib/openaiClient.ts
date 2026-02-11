@@ -827,7 +827,7 @@ export class OpenAIClient {
       try {
         const obj = JSON.parse(line);
 
-        // Handle SpeakMCP-specific SSE event types
+        // Handle ACP Remote-specific SSE event types
         if (obj.type === 'progress' && obj.data) {
           const update = obj.data as AgentProgressUpdate;
           onProgress?.(update);

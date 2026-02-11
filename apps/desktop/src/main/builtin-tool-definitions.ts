@@ -23,7 +23,7 @@ export interface BuiltinToolDefinition {
 }
 
 // The virtual server name for built-in tools
-export const BUILTIN_SERVER_NAME = "speakmcp-settings"
+export const BUILTIN_SERVER_NAME = "acpremote-settings"
 
 // Tool definitions
 export const builtinToolDefinitions: BuiltinToolDefinition[] = [
@@ -138,7 +138,7 @@ export const builtinToolDefinitions: BuiltinToolDefinition[] = [
   },
   {
     name: `${BUILTIN_SERVER_NAME}:get_settings`,
-    description: "Get the current status of SpeakMCP feature toggles including post-processing, TTS (text-to-speech), tool approval, verification, message queue, and parallel tool execution settings.",
+    description: "Get the current status of ACP Remote feature toggles including post-processing, TTS (text-to-speech), tool approval, verification, message queue, and parallel tool execution settings.",
     inputSchema: {
       type: "object",
       properties: {},
@@ -188,11 +188,11 @@ export const builtinToolDefinitions: BuiltinToolDefinition[] = [
     },
   },
   // ACP router tools for agent delegation
-  // NOTE: These tools use a different prefix (speakmcp-builtin:) than the settings tools
-  // above (speakmcp-settings:). This is intentional - agent delegation tools are logically
+  // NOTE: These tools use a different prefix (acpremote-builtin:) than the settings tools
+  // above (acpremote-settings:). This is intentional - agent delegation tools are logically
   // distinct from settings management. Both are treated as built-in tools for execution
   // purposes (see isBuiltinTool in builtin-tools.ts). For UI grouping, all tools in this
-  // array are shown under the "speakmcp-settings" virtual server.
+  // array are shown under the "acpremote-settings" virtual server.
   ...acpRouterToolDefinitions,
   {
     name: `${BUILTIN_SERVER_NAME}:toggle_verification`,
@@ -210,7 +210,7 @@ export const builtinToolDefinitions: BuiltinToolDefinition[] = [
   },
   {
     name: `${BUILTIN_SERVER_NAME}:toggle_whatsapp`,
-    description: "Enable or disable WhatsApp integration. When enabled, allows sending and receiving WhatsApp messages through SpeakMCP.",
+    description: "Enable or disable WhatsApp integration. When enabled, allows sending and receiving WhatsApp messages through ACP Remote.",
     inputSchema: {
       type: "object",
       properties: {

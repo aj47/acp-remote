@@ -220,7 +220,7 @@ function calculateBackoffDelay(
  * - Authentication problems
  * - Malformed requests
  * These won't resolve by waiting, so exponential backoff wastes time.
- * See: https://github.com/aj47/SpeakMCP/issues/964
+ * See: https://github.com/aj47/acp-remote/issues/964
  */
 function isEmptyResponseError(error: unknown): boolean {
   if (error instanceof Error) {
@@ -383,7 +383,7 @@ async function withRetry<T>(
       }
 
       // Check for empty response errors - these skip backoff entirely
-      // See: https://github.com/aj47/SpeakMCP/issues/964
+      // See: https://github.com/aj47/acp-remote/issues/964
       const isEmptyResponse = isEmptyResponseError(error)
 
       // Check for rate limit (429) using structured error fields when available

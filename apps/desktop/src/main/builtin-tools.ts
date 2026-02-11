@@ -1,8 +1,8 @@
 /**
- * Built-in MCP Tools for SpeakMCP Settings Management
+ * Built-in MCP Tools for ACP Remote Settings Management
  *
- * These tools are registered as a virtual "speakmcp-settings" server and provide
- * functionality for managing SpeakMCP settings directly from the LLM:
+ * These tools are registered as a virtual "acpremote-settings" server and provide
+ * functionality for managing ACP Remote settings directly from the LLM:
  * - List MCP servers and their status
  * - Enable/disable MCP servers
  * - List and switch profiles
@@ -624,7 +624,7 @@ const toolHandlers: Record<string, ToolHandler> = {
               verificationEnabled: "When enabled, the agent verifies task completion before finishing. Disable for faster responses without verification",
               messageQueueEnabled: "When enabled, users can queue messages while the agent is processing",
               parallelToolExecutionEnabled: "When enabled, multiple tool calls from a single LLM response are executed concurrently",
-              whatsappEnabled: "When enabled, allows sending and receiving WhatsApp messages through SpeakMCP",
+              whatsappEnabled: "When enabled, allows sending and receiving WhatsApp messages through ACP Remote",
             },
           }, null, 2),
         },
@@ -1677,7 +1677,7 @@ const toolHandlers: Record<string, ToolHandler> = {
           type: "text",
           text: JSON.stringify({
             success: false,
-            error: `Server '${serverName}' not found. Use speakmcp-settings:list_mcp_servers to see available servers.`,
+            error: `Server '${serverName}' not found. Use acpremote-settings:list_mcp_servers to see available servers.`,
           }, null, 2),
         }],
         isError: true,
@@ -1702,7 +1702,7 @@ const toolHandlers: Record<string, ToolHandler> = {
           serverName,
           tools: toolList,
           count: toolList.length,
-          hint: "Use speakmcp-settings:get_tool_schema to get full parameter details for a specific tool",
+          hint: "Use acpremote-settings:get_tool_schema to get full parameter details for a specific tool",
         }, null, 2),
       }],
       isError: false,
@@ -1758,7 +1758,7 @@ const toolHandlers: Record<string, ToolHandler> = {
           type: "text",
           text: JSON.stringify({
             success: false,
-            error: `Tool '${toolName}' not found. Use speakmcp-settings:list_server_tools to see available tools for a server.`,
+            error: `Tool '${toolName}' not found. Use acpremote-settings:list_server_tools to see available tools for a server.`,
             availableTools: allTools.slice(0, 10).map((t) => t.name),
             hint: allTools.length > 10 ? `...and ${allTools.length - 10} more tools` : undefined,
           }, null, 2),
@@ -1833,7 +1833,7 @@ const toolHandlers: Record<string, ToolHandler> = {
 
 /**
  * Execute a built-in tool by name
- * @param toolName The full tool name (e.g., "speakmcp-settings:list_mcp_servers")
+ * @param toolName The full tool name (e.g., "acpremote-settings:list_mcp_servers")
  * @param args The tool arguments
  * @param sessionId Optional session ID for ACP router tools
  * @returns The tool result
@@ -1891,7 +1891,7 @@ export async function executeBuiltinTool(
 
 /**
  * Check if a tool name is a built-in tool
- * This includes both speakmcp-settings tools and ACP router tools (speakmcp-builtin)
+ * This includes both acpremote-settings tools and ACP router tools (acpremote-builtin)
  */
 export function isBuiltinTool(toolName: string): boolean {
   return toolName.startsWith(`${BUILTIN_SERVER_NAME}:`) || isACPRouterTool(toolName)

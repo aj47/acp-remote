@@ -276,7 +276,7 @@ export const Component = () => {
             <LoadingSpinner size={isCollapsed ? "sm" : "lg"} />
             {!isCollapsed && (
               <>
-                <div>SpeakMCP</div>
+                <div>ACP Remote</div>
                 <div className="text-xs">{process.env.APP_VERSION}</div>
               </>
             )}

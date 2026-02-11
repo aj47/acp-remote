@@ -5,7 +5,7 @@
  * Some versions of electron-builder require these directories to exist
  * before the build starts.
  * 
- * Issue: https://github.com/aj47/SpeakMCP/issues/595
+ * Issue: https://github.com/aj47/acp-remote/issues/595
  */
 
 import { existsSync, mkdirSync } from "fs"

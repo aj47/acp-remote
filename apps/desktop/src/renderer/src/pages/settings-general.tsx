@@ -35,7 +35,7 @@ import { ExternalLink, AlertCircle } from "lucide-react"
 import { useState, useCallback, useEffect } from "react"
 import { useQuery } from "@tanstack/react-query"
 import { useNavigate } from "react-router-dom"
-import { Config } from "@shared/types"
+import { Config, AgentProfile } from "@shared/types"
 import { KeyRecorder } from "@renderer/components/key-recorder"
 import {
   getEffectiveShortcut,
@@ -45,8 +45,22 @@ import {
 export function Component() {
   const configQuery = useConfigQuery()
   const navigate = useNavigate()
+  const [agentProfiles, setAgentProfiles] = useState<AgentProfile[]>([])
 
   const saveConfigMutation = useSaveConfigMutation()
+
+  // Fetch agent profiles for the ACP Agent dropdown
+  useEffect(() => {
+    const loadProfiles = async () => {
+      try {
+        const profiles = await tipcClient.getAgentProfiles()
+        setAgentProfiles(profiles)
+      } catch (error) {
+        console.error("Failed to load agent profiles:", error)
+      }
+    }
+    loadProfiles()
+  }, [])
 
   // Check if langfuse package is installed
   const langfuseInstalledQuery = useQuery({
@@ -760,7 +774,7 @@ export function Component() {
             />
           </Control>
 
-          <Control label={<ControlLabel label="Hide Panel When Main App Focused" tooltip="When enabled, the floating panel automatically hides when the main SpeakMCP window is focused. The panel reappears when the main window loses focus." />} className="px-3">
+          <Control label={<ControlLabel label="Hide Panel When Main App Focused" tooltip="When enabled, the floating panel automatically hides when the main ACP Remote window is focused. The panel reappears when the main window loses focus." />} className="px-3">
             <Switch
               checked={configQuery.data?.hidePanelWhenMainFocused !== false}
               onCheckedChange={(value) => {
@@ -778,12 +792,12 @@ export function Component() {
           title="WhatsApp Integration"
           endDescription={(
             <div className="break-words whitespace-normal">
-              Enable WhatsApp messaging through SpeakMCP.{" "}
+              Enable WhatsApp messaging through ACP Remote.{" "}
               <a href="/settings/whatsapp" className="underline">Configure WhatsApp settings</a>.
             </div>
           )}
         >
-          <Control label={<ControlLabel label="Enable WhatsApp" tooltip="When enabled, allows sending and receiving WhatsApp messages through SpeakMCP" />} className="px-3">
+          <Control label={<ControlLabel label="Enable WhatsApp" tooltip="When enabled, allows sending and receiving WhatsApp messages through ACP Remote" />} className="px-3">
             <Switch
               checked={configQuery.data?.whatsappEnabled ?? false}
               onCheckedChange={(value) => saveConfig({ whatsappEnabled: value })}
@@ -813,7 +827,7 @@ export function Component() {
 
           {configQuery.data?.mainAgentMode === "acp" && (
             <>
-              <Control label={<ControlLabel label="ACP Agent" tooltip="Select which configured ACP agent to use as the main agent. The agent must be configured in the ACP Agents settings page." />} className="px-3">
+              <Control label={<ControlLabel label="ACP Agent" tooltip="Select which configured ACP agent to use as the main agent. The agent must be configured in the External Agents settings page." />} className="px-3">
                 <Select
                   value={configQuery.data?.mainAgentName || ""}
                   onValueChange={(value: string) => {
@@ -824,11 +838,16 @@ export function Component() {
                     <SelectValue placeholder="Select an agent..." />
                   </SelectTrigger>
                   <SelectContent>
-                    {(configQuery.data?.acpAgents || [])
-                      .filter(agent => agent.enabled !== false)
-                      .map(agent => (
-                        <SelectItem key={agent.name} value={agent.name}>
-                          {agent.displayName || agent.name}
+                    {agentProfiles
+                      .filter(profile => {
+                        // Show external agents (ACP/stdio/remote) that are enabled
+                        const isExternalAgent = profile.role === "external-agent" ||
+                          (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
+                        return isExternalAgent && profile.enabled !== false
+                      })
+                      .map(profile => (
+                        <SelectItem key={profile.name} value={profile.name}>
+                          {profile.displayName || profile.name}
                         </SelectItem>
                       ))}
                   </SelectContent>
@@ -837,11 +856,11 @@ export function Component() {
 
               {configQuery.data?.mainAgentName && (
                 <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
-                  <span className="font-medium">Note:</span> When using ACP mode, the agent will use its own MCP tools and LLM, not SpeakMCP's configured providers and tools.
+                  <span className="font-medium">Note:</span> When using ACP mode, the agent will use its own MCP tools and LLM, not ACP Remote's configured providers and tools.
                 </div>
               )}
 
-              <Control label={<ControlLabel label="Inject SpeakMCP Tools" tooltip="When enabled, SpeakMCP's builtin tools (delegation, settings management) are injected into ACP agent sessions. This allows the ACP agent to delegate tasks to other agents. Requires Remote Server to be enabled." />} className="px-3">
+              <Control label={<ControlLabel label="Inject ACP Remote Tools" tooltip="When enabled, ACP Remote's builtin tools (delegation, settings management) are injected into ACP agent sessions. This allows the ACP agent to delegate tasks to other agents. Requires Remote Server to be enabled." />} className="px-3">
                 <Switch
                   checked={configQuery.data?.acpInjectBuiltinTools !== false}
                   disabled={!configQuery.data?.remoteServerEnabled}
