@@ -12,6 +12,7 @@ import { useProfile } from '../store/profile';
 import { usePushNotifications } from '../lib/pushNotifications';
 import { SettingsApiClient, Profile, MCPServer, Settings } from '../lib/settingsApi';
 import { WebQRScanner } from '../ui/WebQRScanner';
+import { TTSSettings } from '../ui/TTSSettings';
 
 function parseQRCode(data: string): { baseUrl?: string; apiKey?: string; model?: string } | null {
   try {
@@ -560,6 +561,18 @@ export default function SettingsScreen({ navigation }: any) {
             thumbColor={draft.ttsEnabled !== false ? theme.colors.primaryForeground : theme.colors.background}
           />
         </View>
+
+        {/* TTS Voice Settings - shown when TTS is enabled */}
+        {draft.ttsEnabled !== false && (
+          <TTSSettings
+            voiceId={draft.ttsVoiceId}
+            rate={draft.ttsRate ?? 1.0}
+            pitch={draft.ttsPitch ?? 1.0}
+            onVoiceChange={(v) => setDraft({ ...draft, ttsVoiceId: v })}
+            onRateChange={(r) => setDraft({ ...draft, ttsRate: r })}
+            onPitchChange={(p) => setDraft({ ...draft, ttsPitch: p })}
+          />
+        )}
 
         <View style={styles.row}>
           <Text style={styles.label}>Message Queuing</Text>
