@@ -240,6 +240,18 @@ export interface ACPModelOrMode {
   description?: string;
 }
 
+// Raw server response types (server uses modelId for models, id for modes)
+interface ACPSessionInfoRaw {
+  agentName?: string;
+  agentTitle?: string;
+  agentVersion?: string;
+  sessionId?: string;
+  currentModelId?: string;
+  currentModeId?: string;
+  availableModels?: Array<{ modelId: string; name: string; description?: string }>;
+  availableModes?: Array<{ id: string; name: string; description?: string }>;
+}
+
 export interface ACPSessionInfo {
   agentName?: string;
   agentTitle?: string;
@@ -249,6 +261,26 @@ export interface ACPSessionInfo {
   currentMode?: string;
   availableModels?: ACPModelOrMode[];
   availableModes?: ACPModelOrMode[];
+}
+
+// Transform raw server response to normalized format
+function normalizeACPSessionInfo(raw: ACPSessionInfoRaw): ACPSessionInfo {
+  return {
+    agentName: raw.agentName,
+    agentTitle: raw.agentTitle,
+    agentVersion: raw.agentVersion,
+    sessionId: raw.sessionId,
+    currentModel: raw.currentModelId,
+    currentMode: raw.currentModeId,
+    // Normalize models: server uses modelId, we use id
+    availableModels: raw.availableModels?.map(m => ({
+      id: m.modelId,
+      name: m.name,
+      description: m.description,
+    })),
+    // Modes already use id
+    availableModes: raw.availableModes,
+  };
 }
 
 export interface ACPSetModelModeResult {
@@ -277,7 +309,8 @@ export class ExtendedSettingsApiClient extends SettingsApiClient {
   // ACP Session Management
   async getACPSession(): Promise<ACPSessionInfo | null> {
     try {
-      return await this.request<ACPSessionInfo>('/acp/session');
+      const raw = await this.request<ACPSessionInfoRaw>('/acp/session');
+      return normalizeACPSessionInfo(raw);
     } catch (error: any) {
       // Return null if no session (404) rather than throwing
       if (error?.message?.includes('404') || error?.message?.includes('No main agent')) {
@@ -289,7 +322,8 @@ export class ExtendedSettingsApiClient extends SettingsApiClient {
 
   async getACPSessionForAgent(agentName: string): Promise<ACPSessionInfo | null> {
     try {
-      return await this.request<ACPSessionInfo>(`/acp/session/${encodeURIComponent(agentName)}`);
+      const raw = await this.request<ACPSessionInfoRaw>(`/acp/session/${encodeURIComponent(agentName)}`);
+      return normalizeACPSessionInfo(raw);
     } catch (error: any) {
       // Return null if no session (404) rather than throwing
       if (error?.message?.includes('404') || error?.message?.includes('No active session')) {
