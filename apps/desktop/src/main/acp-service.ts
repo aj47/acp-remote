@@ -13,11 +13,12 @@ import { EventEmitter } from "events"
 import { readFile, writeFile, mkdir, realpath } from "fs/promises"
 import { dirname } from "path"
 import { configStore } from "./config"
-import { ACPAgentConfig } from "../shared/types"
+import { ACPAgentConfig, AgentProfile } from "../shared/types"
 import { toolApprovalManager } from "./state"
 import { emitAgentProgress } from "./emit-agent-progress"
-import { logACP } from "./debug"
+import { logACP, logApp } from "./debug"
 import { getSpeakMcpSessionForAcpSession } from "./acp-session-state"
+import { agentProfileService } from "./agent-profile-service"
 
 // JSON-RPC types
 interface JsonRpcRequest {
@@ -376,16 +377,16 @@ class ACPService extends EventEmitter {
   }
 
   /**
-   * Initialize ACP service - loads agents from config and auto-spawns if needed
+   * Initialize ACP service - loads agents from agent profiles and auto-spawns if needed
    */
   async initialize(): Promise<void> {
-    const config = configStore.get()
-    const acpAgents = config.acpAgents || []
+    // Get external agents from the unified agent profile service
+    const externalAgents = agentProfileService.getExternalAgents()
 
-    for (const agentConfig of acpAgents) {
-      if (agentConfig.enabled !== false && agentConfig.autoSpawn) {
+    for (const agent of externalAgents) {
+      if (agent.enabled && agent.autoSpawn) {
         try {
-          await this.spawnAgent(agentConfig.name)
+          await this.spawnAgent(agent.name)
         } catch {
           // Silently ignore auto-spawn failures
         }
@@ -397,13 +398,32 @@ class ACPService extends EventEmitter {
    * Get all configured agents with their current status
    */
   getAgents(): Array<{ config: ACPAgentConfig; status: ACPAgentStatus; error?: string }> {
-    const config = configStore.get()
-    const acpAgents = config.acpAgents || []
+    // Get external agents from the unified agent profile service
+    const externalAgents = agentProfileService.getExternalAgents()
 
-    return acpAgents.map(agentConfig => {
-      const instance = this.agents.get(agentConfig.name)
+    return externalAgents.map(agent => {
+      const instance = this.agents.get(agent.name)
+      // Convert AgentProfile to ACPAgentConfig for API compatibility
+      const config: ACPAgentConfig = {
+        name: agent.name,
+        displayName: agent.displayName,
+        description: agent.description,
+        autoSpawn: agent.autoSpawn,
+        enabled: agent.enabled,
+        isInternal: agent.isBuiltIn,
+        connection: {
+          type: agent.connection.type === "acp" ? "stdio" :
+                agent.connection.type === "remote" ? "remote" :
+                agent.connection.type === "internal" ? "internal" : "stdio",
+          command: agent.connection.command,
+          args: agent.connection.args,
+          env: agent.connection.env,
+          cwd: agent.connection.cwd,
+          baseUrl: agent.connection.baseUrl,
+        },
+      }
       return {
-        config: agentConfig,
+        config,
         status: instance?.status || "stopped",
         error: instance?.error,
       }
@@ -441,14 +461,14 @@ class ACPService extends EventEmitter {
    * Spawn an ACP agent process
    */
   async spawnAgent(agentName: string): Promise<void> {
-    const config = configStore.get()
-    const agentConfig = config.acpAgents?.find(a => a.name === agentName)
+    // Look up the agent in the unified agent profile service
+    const agentProfile = agentProfileService.getByName(agentName)
 
-    if (!agentConfig) {
+    if (!agentProfile) {
       throw new Error(`Agent ${agentName} not found in configuration`)
     }
 
-    if (agentConfig.enabled === false) {
+    if (!agentProfile.enabled) {
       throw new Error(`Agent ${agentName} is disabled`)
     }
 
@@ -474,14 +494,32 @@ class ACPService extends EventEmitter {
       }
     }
 
-    if (agentConfig.connection.type !== "stdio") {
-      throw new Error(`Connection type ${agentConfig.connection.type} not yet supported`)
+    // Only stdio and acp connection types can be spawned
+    if (agentProfile.connection.type !== "stdio" && agentProfile.connection.type !== "acp") {
+      throw new Error(`Connection type ${agentProfile.connection.type} not yet supported`)
     }
 
-    const { command, args = [], env = {}, cwd } = agentConfig.connection
+    const { command, args = [], env = {}, cwd } = agentProfile.connection
 
     if (!command) {
       throw new Error(`No command specified for agent ${agentName}`)
+    }
+
+    // Convert AgentProfile to ACPAgentConfig for the instance
+    const agentConfig: ACPAgentConfig = {
+      name: agentProfile.name,
+      displayName: agentProfile.displayName,
+      description: agentProfile.description,
+      autoSpawn: agentProfile.autoSpawn,
+      enabled: agentProfile.enabled,
+      isInternal: agentProfile.isBuiltIn,
+      connection: {
+        type: "stdio", // Both "acp" and "stdio" use stdio spawning
+        command,
+        args,
+        env,
+        cwd,
+      },
     }
 
     // Create agent instance
