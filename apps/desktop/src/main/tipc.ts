@@ -221,8 +221,8 @@ async function processWithAgentMode(
     const isInternalProfile = mainAgentProfile?.connection.type === "internal"
 
     if (!isInternalProfile) {
-      // External ACP agent - route to processTranscriptWithACPAgent
-      logLLM(`[processWithAgentMode] ACP mode enabled, routing to external agent: ${config.mainAgentName}`)
+      // ACP agent - route to processTranscriptWithACPAgent
+      logLLM(`[processWithAgentMode] ACP mode enabled, routing to ACP agent: ${config.mainAgentName}`)
 
       // Create conversation title for session tracking
       const conversationTitle = text.length > 50 ? text.substring(0, 50) + "..." : text
@@ -3255,25 +3255,25 @@ export const router = {
   // ACP Agent Configuration handlers
   getAcpAgents: t.procedure.action(async () => {
     const config = configStore.get()
-    const externalAgents = config.acpAgents || []
+    const acpAgents = config.acpAgents || []
     // Include internal agent in the list, but filter out any persisted 'internal' entries
-    // from externalAgents to avoid duplicates (can happen after toggling enabled state)
+    // from acpAgents to avoid duplicates (can happen after toggling enabled state)
     const { getInternalAgentConfig } = await import('./acp/acp-router-tools')
     const internalAgent = getInternalAgentConfig()
     // Merge any persisted enabled state from config into the internal agent
-    const persistedInternalAgent = externalAgents.find(a => a.name === 'internal')
+    const persistedInternalAgent = acpAgents.find(a => a.name === 'internal')
     if (persistedInternalAgent && typeof persistedInternalAgent.enabled === 'boolean') {
       internalAgent.enabled = persistedInternalAgent.enabled
     }
-    const filteredExternalAgents = externalAgents.filter(a => a.name !== 'internal')
-    return [internalAgent, ...filteredExternalAgents]
+    const filteredACPAgents = acpAgents.filter(a => a.name !== 'internal')
+    return [internalAgent, ...filteredACPAgents]
   }),
 
   saveAcpAgent: t.procedure
     .input<{ agent: ACPAgentConfig }>()
     .action(async ({ input }) => {
       // Block saving agent with reserved name "internal" to avoid config conflicts
-      // The internal agent is a built-in and should not be persisted as an external agent
+      // The internal agent is a built-in and should not be persisted as an ACP agent
       if (input.agent.name === 'internal') {
         return { success: false, error: 'Cannot save agent with reserved name "internal"' }
       }
@@ -3492,8 +3492,8 @@ export const router = {
       return agentProfileService.getByRole(input.role)
     }),
 
-  getExternalAgents: t.procedure.action(async () => {
-    return agentProfileService.getExternalAgents()
+  getACPAgents: t.procedure.action(async () => {
+    return agentProfileService.getACPAgents()
   }),
 
   getAgentProfileConversation: t.procedure

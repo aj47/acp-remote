@@ -44,24 +44,24 @@ const AGENT_PRESETS: Record<string, Partial<EditingProfile>> = {
   },
 }
 
-function isExternalAgent(profile: AgentProfile): boolean {
+function isACPAgent(profile: AgentProfile): boolean {
   if (profile.role === "external-agent") return true
   return profile.isAgentTarget === true && ["acp", "stdio", "remote"].includes(profile.connection.type)
 }
 
-export function SettingsExternalAgents() {
+export function SettingsACPAgents() {
   const [profiles, setProfiles] = useState<AgentProfile[]>([])
   const [editing, setEditing] = useState<EditingProfile | null>(null)
   const [isCreating, setIsCreating] = useState(false)
 
   useEffect(() => { loadProfiles() }, [])
   const loadProfiles = async () => { setProfiles(await tipcClient.getAgentProfiles()) }
-  const externalAgents = profiles.filter(isExternalAgent)
+  const acpAgents = profiles.filter(isACPAgent)
 
   const handleCreate = () => { setIsCreating(true); setEditing({ ...emptyProfile }) }
   const handleCancel = () => { setEditing(null); setIsCreating(false) }
   const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this external agent?")) return
+    if (!confirm("Are you sure you want to delete this ACP agent?")) return
     await tipcClient.deleteAgentProfile({ id }); loadProfiles()
   }
   const handleEdit = (profile: AgentProfile) => {
@@ -122,7 +122,7 @@ export function SettingsExternalAgents() {
       ))}
       {profileList.length === 0 && (
         <div className="text-center py-8 text-muted-foreground">
-          No external agents configured. Click "Add External Agent" to connect one.
+          No ACP agents configured. Click "Add ACP Agent" to connect one.
         </div>
       )}
     </div>
@@ -132,7 +132,7 @@ export function SettingsExternalAgents() {
     if (!editing) return null
     return (
       <Card>
-        <CardHeader><CardTitle>{isCreating ? "Add External Agent" : "Edit External Agent"}</CardTitle></CardHeader>
+        <CardHeader><CardTitle>{isCreating ? "Add ACP Agent" : "Edit ACP Agent"}</CardTitle></CardHeader>
         <CardContent className="space-y-4">
           {isCreating && (
             <div className="space-y-2 mb-4">
@@ -214,14 +214,14 @@ export function SettingsExternalAgents() {
     <div className="modern-panel h-full overflow-y-auto overflow-x-hidden px-6 py-4">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-2xl font-bold">External Agents</h1>
-          <p className="text-muted-foreground">Configure external AI agents (ACP, Stdio, Remote) for delegation</p>
+          <h1 className="text-2xl font-bold">ACP Agents</h1>
+          <p className="text-muted-foreground">Configure ACP agents (ACP, Stdio, Remote) for delegation</p>
         </div>
-        <Button onClick={handleCreate}><Plus className="h-4 w-4 mr-2" />Add External Agent</Button>
+        <Button onClick={handleCreate}><Plus className="h-4 w-4 mr-2" />Add ACP Agent</Button>
       </div>
-      {editing ? renderEditForm() : renderProfileList(externalAgents)}
+      {editing ? renderEditForm() : renderProfileList(acpAgents)}
     </div>
   )
 }
 
-export { SettingsExternalAgents as Component }
+export { SettingsACPAgents as Component }

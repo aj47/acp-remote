@@ -75,8 +75,8 @@ export const Component = () => {
       icon: "i-mingcute-group-line",
     },
     {
-      text: "External Agents",
-      href: "/settings/external-agents",
+      text: "ACP Agents",
+      href: "/settings/acp-agents",
       icon: "i-mingcute-robot-line",
     },
   ]

@@ -808,7 +808,7 @@ export function Component() {
         {/* Agent Settings */}
         <ControlGroup title="Agent Settings">
           {/* Main Agent Mode Selection */}
-          <Control label={<ControlLabel label="Main Agent Mode" tooltip="Choose how the main agent processes your requests. ACP mode (default) allows selecting internal or external agents. API mode uses direct LLM calls without agent selection." />} className="px-3">
+          <Control label={<ControlLabel label="Main Agent Mode" tooltip="Choose how the main agent processes your requests. ACP mode (default) allows selecting internal or ACP agents. API mode uses direct LLM calls without agent selection." />} className="px-3">
             <Select
               value={configQuery.data?.mainAgentMode || "acp"}
               onValueChange={(value: "api" | "acp") => {
@@ -827,7 +827,7 @@ export function Component() {
 
           {(configQuery.data?.mainAgentMode === "acp" || !configQuery.data?.mainAgentMode) && (
             <>
-              <Control label={<ControlLabel label="Main Agent" tooltip="Select which agent to use as the main agent. Internal profiles use direct LLM APIs. External agents (ACP/stdio/remote) are full AI coding agents." />} className="px-3">
+              <Control label={<ControlLabel label="Main Agent" tooltip="Select which agent to use as the main agent. Internal profiles use direct LLM APIs. ACP agents (ACP/stdio/remote) are full AI coding agents." />} className="px-3">
                 <Select
                   value={configQuery.data?.mainAgentName || ""}
                   onValueChange={(value: string) => {
@@ -857,21 +857,21 @@ export function Component() {
                           {profile.displayName || profile.name}
                         </SelectItem>
                       ))}
-                    {/* External agents (ACP/stdio/remote) */}
+                    {/* ACP agents (ACP/stdio/remote) */}
                     {agentProfiles
                       .filter(profile => {
-                        const isExternalAgent = profile.role === "external-agent" ||
+                        const isACPAgent = profile.role === "external-agent" ||
                           (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
-                        return isExternalAgent && profile.enabled !== false
+                        return isACPAgent && profile.enabled !== false
                       })
                       .length > 0 && (
-                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium border-t mt-1 pt-2">External (ACP Agents)</div>
+                        <div className="px-2 py-1 text-xs text-muted-foreground font-medium border-t mt-1 pt-2">ACP Agents</div>
                       )}
                     {agentProfiles
                       .filter(profile => {
-                        const isExternalAgent = profile.role === "external-agent" ||
+                        const isACPAgent = profile.role === "external-agent" ||
                           (profile.isAgentTarget && ["acp", "stdio", "remote"].includes(profile.connection.type))
-                        return isExternalAgent && profile.enabled !== false
+                        return isACPAgent && profile.enabled !== false
                       })
                       .map(profile => (
                         <SelectItem key={profile.name} value={profile.name}>
@@ -891,7 +891,7 @@ export function Component() {
                   </div>
                 ) : (
                   <div className="px-3 py-2 text-sm text-muted-foreground bg-muted/30 rounded-md mx-3 mb-2">
-                    <span className="font-medium">Note:</span> External agents use their own MCP tools and LLM, not ACP Remote's configured providers.
+                    <span className="font-medium">Note:</span> ACP agents use their own MCP tools and LLM, not ACP Remote's configured providers.
                   </div>
                 )
               })()}

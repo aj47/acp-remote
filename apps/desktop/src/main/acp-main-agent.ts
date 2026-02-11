@@ -16,12 +16,13 @@ import {
   markContextInjected,
 } from "./acp-session-state"
 import { emitAgentProgress } from "./emit-agent-progress"
-import { AgentProgressUpdate, AgentProgressStep, AgentMemory } from "../shared/types"
+import { AgentProgressUpdate, AgentProgressStep, AgentMemory, AgentProfile } from "../shared/types"
 import { logApp } from "./debug"
 import { conversationService } from "./conversation-service"
 import { memoryService } from "./memory-service"
 import { skillsService } from "./skills-service"
 import { configStore } from "./config"
+import { agentProfileService } from "./agent-profile-service"
 
 /**
  * Format memories for ACP context injection.
@@ -48,13 +49,37 @@ function formatMemoriesForContext(memories: AgentMemory[], maxMemories: number =
 
 /**
  * Construct the context prefix to inject into the first ACP prompt.
- * This includes memories, guidelines, and skills - similar to how LLM mode works.
+ * This includes memories, guidelines, skills, and persona context - similar to how LLM mode works.
+ *
+ * @param profileId - Optional profile ID for scoping memories
+ * @param mainAgentProfile - Optional main agent profile for persona-specific context
  */
-async function constructACPContextPrefix(profileId?: string): Promise<string> {
+async function constructACPContextPrefix(
+  profileId?: string,
+  mainAgentProfile?: AgentProfile
+): Promise<string> {
   const sections: string[] = []
   const config = configStore.get()
 
-  // 1. Memories (profile-scoped if available)
+  // 1. Persona System Prompt (if the main agent has one)
+  // This defines the agent's personality and behavior
+  if (mainAgentProfile?.systemPrompt?.trim()) {
+    sections.push(`# Persona Instructions
+${mainAgentProfile.systemPrompt.trim()}`)
+    logApp(`[ACP Context] Injecting persona system prompt from ${mainAgentProfile.name}`)
+  }
+
+  // 2. Persona Properties (dynamic key-value pairs from persona)
+  if (mainAgentProfile?.properties && Object.keys(mainAgentProfile.properties).length > 0) {
+    const propertiesText = Object.entries(mainAgentProfile.properties)
+      .map(([key, value]) => `- **${key}**: ${value}`)
+      .join("\n")
+    sections.push(`# Persona Properties
+${propertiesText}`)
+    logApp(`[ACP Context] Injecting ${Object.keys(mainAgentProfile.properties).length} persona properties`)
+  }
+
+  // 3. Memories (profile-scoped if available)
   if (config.memoriesEnabled !== false && config.dualModelInjectMemories) {
     try {
       const allMemories = profileId
@@ -73,11 +98,18 @@ ${formattedMemories}`)
     }
   }
 
-  // 2. User Guidelines (from profile or global config)
-  const guidelines = config.mcpToolsSystemPrompt?.trim()
-  if (guidelines) {
+  // 4. Guidelines (from persona first, then global config as fallback)
+  const personaGuidelines = mainAgentProfile?.guidelines?.trim()
+  const globalGuidelines = config.mcpToolsSystemPrompt?.trim()
+
+  // Combine persona and global guidelines if both exist
+  const combinedGuidelines = [personaGuidelines, globalGuidelines]
+    .filter(Boolean)
+    .join("\n\n")
+
+  if (combinedGuidelines) {
     sections.push(`# User Guidelines
-${guidelines}`)
+${combinedGuidelines}`)
   }
 
   // 3. Skills (enabled skills for the profile)
@@ -383,8 +415,14 @@ export async function processTranscriptWithACPAgent(
       let promptToSend = transcript
 
       if (shouldInjectContext) {
-        // Construct and prepend context prefix (memories, guidelines, skills)
-        const contextPrefix = await constructACPContextPrefix(configStore.get().mcpCurrentProfileId)
+        // Get the main agent's profile to inject persona-specific context
+        const mainAgentProfile = agentProfileService.getByName(agentName)
+
+        // Construct and prepend context prefix (memories, guidelines, skills, persona)
+        const contextPrefix = await constructACPContextPrefix(
+          configStore.get().mcpCurrentProfileId,
+          mainAgentProfile
+        )
         if (contextPrefix) {
           promptToSend = contextPrefix + transcript
           logApp(`[ACP Main] Injected context prefix (${contextPrefix.length} chars) for first prompt`)

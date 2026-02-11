@@ -380,10 +380,10 @@ class ACPService extends EventEmitter {
    * Initialize ACP service - loads agents from agent profiles and auto-spawns if needed
    */
   async initialize(): Promise<void> {
-    // Get external agents from the unified agent profile service
-    const externalAgents = agentProfileService.getExternalAgents()
+    // Get ACP agents from the unified agent profile service
+    const acpAgents = agentProfileService.getACPAgents()
 
-    for (const agent of externalAgents) {
+    for (const agent of acpAgents) {
       if (agent.enabled && agent.autoSpawn) {
         try {
           await this.spawnAgent(agent.name)
@@ -398,10 +398,10 @@ class ACPService extends EventEmitter {
    * Get all configured agents with their current status
    */
   getAgents(): Array<{ config: ACPAgentConfig; status: ACPAgentStatus; error?: string }> {
-    // Get external agents from the unified agent profile service
-    const externalAgents = agentProfileService.getExternalAgents()
+    // Get ACP agents from the unified agent profile service
+    const acpAgents = agentProfileService.getACPAgents()
 
-    return externalAgents.map(agent => {
+    return acpAgents.map(agent => {
       const instance = this.agents.get(agent.name)
       // Convert AgentProfile to ACPAgentConfig for API compatibility
       const config: ACPAgentConfig = {

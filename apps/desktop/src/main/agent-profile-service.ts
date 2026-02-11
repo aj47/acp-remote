@@ -351,7 +351,7 @@ class AgentProfileService {
         case "delegation-target":
           return p.isAgentTarget === true
         case "external-agent":
-          // External agents have acp/stdio/remote connection types and are agent targets
+          // ACP agents have acp/stdio/remote connection types and are agent targets
           return p.isAgentTarget === true &&
             (p.connection.type === "acp" || p.connection.type === "stdio" || p.connection.type === "remote")
         default:
@@ -387,9 +387,9 @@ class AgentProfileService {
   }
 
   /**
-   * Get external agents (ACP/stdio/remote agents).
+   * Get ACP agents (ACP/stdio/remote agents).
    */
-  getExternalAgents(): AgentProfile[] {
+  getACPAgents(): AgentProfile[] {
     return this.getByRole("external-agent")
   }
 

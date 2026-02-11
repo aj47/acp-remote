@@ -56,7 +56,7 @@ function getProfileRole(profile: AgentProfile): AgentProfileRole {
   if (profile.isUserProfile) {
     return "user-profile"
   }
-  // External agents have acp/stdio/remote connection types
+  // ACP agents have acp/stdio/remote connection types
   if (profile.isAgentTarget &&
       (profile.connection.type === "acp" ||
        profile.connection.type === "stdio" ||
@@ -263,7 +263,7 @@ export function SettingsAgentPersonas() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="internal">Internal (built-in agent)</SelectItem>
-                <SelectItem value="acp">ACP (external agent)</SelectItem>
+                <SelectItem value="acp">ACP Agent</SelectItem>
                 <SelectItem value="stdio">Stdio (process spawn)</SelectItem>
                 <SelectItem value="remote">Remote (HTTP endpoint)</SelectItem>
               </SelectContent>

@@ -434,7 +434,7 @@ export async function runInternalSubSession(
         return {
           success: false,
           subSessionId,
-          error: `AgentProfile "${personaName}" is configured to use external agent and should be routed through the ACP system, not the internal agent.`,
+          error: `AgentProfile "${personaName}" is configured to use ACP agent and should be routed through the ACP system, not the internal agent.`,
           conversationHistory: [],
           duration: Date.now() - subSession.startTime,
         };

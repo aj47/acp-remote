@@ -63,8 +63,13 @@ export const router: ReturnType<typeof createBrowserRouter> =
           lazy: () => import("./pages/settings-agent-personas"),
         },
         {
+          path: "settings/acp-agents",
+          lazy: () => import("./pages/settings-acp-agents"),
+        },
+        {
+          // Redirect old path to new path
           path: "settings/external-agents",
-          lazy: () => import("./pages/settings-external-agents"),
+          loader: () => redirect("/settings/acp-agents"),
         },
         {
           path: "settings/agent-profiles",

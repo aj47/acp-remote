@@ -1321,7 +1321,7 @@ export async function startRemoteServer() {
     }
   })
 
-  // MCP Protocol Endpoints - Expose ACP Remote builtin tools to external agents
+  // MCP Protocol Endpoints - Expose ACP Remote builtin tools to ACP agents
   // These endpoints implement a simplified MCP-over-HTTP protocol
 
   // POST /mcp/tools/list - List all available builtin tools

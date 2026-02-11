@@ -469,7 +469,7 @@ export function getInternalAgentConfig(): import('../../shared/types').ACPAgentC
 /**
  * List all available ACP agents, optionally filtered by capability.
  * Uses configStore for agent definitions and acpService for runtime status.
- * Includes the built-in internal agent alongside configured external agents.
+ * Includes the built-in internal agent alongside configured ACP agents.
  * Also includes enabled personas as available agents for delegation.
  * @param args - Arguments containing optional capability filter
  * @returns Object with list of available agents
@@ -483,7 +483,7 @@ export async function handleListAvailableAgents(args: {
 
     // Note: capability filter parameter is deprecated and ignored
 
-    // Get runtime status from acpService (for external agents)
+    // Get runtime status from acpService (for ACP agents)
     const agentStatuses = acpService.getAgents();
     const statusMap = new Map(
       agentStatuses.map((a) => [a.config.name, { status: a.status, error: a.error }])
@@ -505,7 +505,7 @@ export async function handleListAvailableAgents(args: {
         };
       }
 
-      // External agents (acp, stdio, remote) - check runtime status
+      // ACP agents (acp, stdio, remote) - check runtime status
       const runtime = statusMap.get(agent.name);
       return {
         name: agent.name,
@@ -1411,12 +1411,12 @@ export async function handleCancelAgentRun(args: { runId: string }): Promise<obj
       };
     }
 
-    // For external agents, we can't really cancel mid-run but we can mark it
+    // For ACP agents, we can't really cancel mid-run but we can mark it
     state.status = 'cancelled';
     return {
       success: true,
       message: `Agent run "${args.runId}" marked as cancelled`,
-      note: 'External agent tasks cannot be forcefully stopped mid-execution',
+      note: 'ACP agent tasks cannot be forcefully stopped mid-execution',
     };
   } catch (error) {
     return {
