@@ -46,6 +46,8 @@ export default function SettingsScreen({ navigation }: any) {
   const [showScanner, setShowScanner] = useState(false);
   const [permission, requestPermission] = useCameraPermissions();
   const [scanned, setScanned] = useState(false);
+  const [showUrlPaste, setShowUrlPaste] = useState(false);
+  const [urlPasteText, setUrlPasteText] = useState('');
   const [isCheckingConnection, setIsCheckingConnection] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const { connect: tunnelConnect, disconnect: tunnelDisconnect } = useTunnelConnection();
@@ -581,6 +583,11 @@ export default function SettingsScreen({ navigation }: any) {
   };
 
   const handleScanQR = async () => {
+    if (Platform.OS === 'web') {
+      setUrlPasteText('');
+      setShowUrlPaste(true);
+      return;
+    }
     if (!permission?.granted) {
       const result = await requestPermission();
       if (!result.granted) {
@@ -607,6 +614,20 @@ export default function SettingsScreen({ navigation }: any) {
     } else {
       // Invalid QR code, allow scanning again
       setTimeout(() => setScanned(false), 2000);
+    }
+  };
+
+  const handleUrlPaste = () => {
+    const params = parseQRCode(urlPasteText.trim());
+    if (params) {
+      setDraft(prev => ({
+        ...prev,
+        ...(params.baseUrl && { baseUrl: params.baseUrl }),
+        ...(params.apiKey && { apiKey: params.apiKey }),
+        ...(params.model && { model: params.model }),
+      }));
+      setShowUrlPaste(false);
+      setUrlPasteText('');
     }
   };
 
@@ -673,7 +694,7 @@ export default function SettingsScreen({ navigation }: any) {
         <Text style={styles.sectionTitle}>API Configuration</Text>
 
         <TouchableOpacity style={styles.scanButton} onPress={handleScanQR}>
-          <Text style={styles.scanButtonText}>📷 Scan QR Code</Text>
+          <Text style={styles.scanButtonText}>{Platform.OS === 'web' ? '🔗 Paste Config URL' : '📷 Scan QR Code'}</Text>
         </TouchableOpacity>
 
         <Text style={styles.label}>API Key</Text>
@@ -1031,23 +1052,64 @@ export default function SettingsScreen({ navigation }: any) {
 
       </ScrollView>
 
-      <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
-        <View style={styles.scannerContainer}>
-          <CameraView
-            style={styles.camera}
-            facing="back"
-            barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
-            onBarcodeScanned={handleBarCodeScanned}
-          />
-          <View style={styles.scannerOverlay}>
-            <View style={styles.scannerFrame} />
-            <Text style={styles.scannerText}>
-              {scanned ? 'Invalid QR code format' : 'Scan an ACP Remote QR code'}
-            </Text>
+      {Platform.OS !== 'web' && (
+        <Modal visible={showScanner} animationType="slide" onRequestClose={() => setShowScanner(false)}>
+          <View style={styles.scannerContainer}>
+            <CameraView
+              style={styles.camera}
+              facing="back"
+              barcodeScannerSettings={{ barcodeTypes: ['qr'] }}
+              onBarcodeScanned={handleBarCodeScanned}
+            />
+            <View style={styles.scannerOverlay}>
+              <View style={styles.scannerFrame} />
+              <Text style={styles.scannerText}>
+                {scanned ? 'Invalid QR code format' : 'Scan an ACP Remote QR code'}
+              </Text>
+            </View>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowScanner(false)}>
+              <Text style={styles.closeButtonText}>✕ Close</Text>
+            </TouchableOpacity>
           </View>
-          <TouchableOpacity style={styles.closeButton} onPress={() => setShowScanner(false)}>
-            <Text style={styles.closeButtonText}>✕ Close</Text>
-          </TouchableOpacity>
+        </Modal>
+      )}
+
+      {/* URL Paste Modal (web only) */}
+      <Modal
+        visible={showUrlPaste}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setShowUrlPaste(false)}
+      >
+        <View style={styles.modelPickerOverlay}>
+          <View style={styles.modelPickerContainer}>
+            <View style={styles.modelPickerHeader}>
+              <Text style={styles.modelPickerTitle}>🔗 Paste Config URL</Text>
+              <TouchableOpacity onPress={() => setShowUrlPaste(false)}>
+                <Text style={styles.modelPickerClose}>✕</Text>
+              </TouchableOpacity>
+            </View>
+            <Text style={[styles.helperText, { marginBottom: spacing.sm }]}>
+              Paste the <Text style={{ fontFamily: 'monospace' }}>acpremote://config?...</Text> URL from the desktop app's QR code.
+            </Text>
+            <TextInput
+              style={styles.input}
+              value={urlPasteText}
+              onChangeText={setUrlPasteText}
+              placeholder="acpremote://config?baseUrl=...&apiKey=..."
+              placeholderTextColor="#999"
+              autoCapitalize="none"
+              autoCorrect={false}
+              multiline={false}
+            />
+            <TouchableOpacity
+              style={[styles.profileActionButton, !urlPasteText.trim() && styles.primaryButtonDisabled]}
+              onPress={handleUrlPaste}
+              disabled={!urlPasteText.trim()}
+            >
+              <Text style={styles.profileActionButtonText}>Apply</Text>
+            </TouchableOpacity>
+          </View>
         </View>
       </Modal>
 
