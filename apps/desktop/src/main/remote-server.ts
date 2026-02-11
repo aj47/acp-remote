@@ -8,6 +8,7 @@ import { diagnosticsService } from "./diagnostics"
 import { mcpService, MCPToolResult, handleWhatsAppToggle } from "./mcp-service"
 import { processTranscriptWithAgentMode } from "./llm"
 import { processTranscriptWithACPAgent } from "./acp-main-agent"
+import { acpService } from "./acp-service"
 import { agentProfileService } from "./agent-profile-service"
 import { state, agentProcessManager, agentSessionStateManager } from "./state"
 import { conversationService } from "./conversation-service"
@@ -770,6 +771,101 @@ export async function startRemoteServer() {
         errorMessage.includes("invalid") ||
         errorMessage.includes("missing")
       return reply.code(isValidationError ? 400 : 500).send({ error: error?.message || "Failed to import profile" })
+    }
+  })
+
+  // ============================================
+  // ACP Session Endpoints
+  // ============================================
+
+  // GET /v1/acp/session - Get ACP session info for the current main agent
+  fastify.get("/v1/acp/session", async (_req, reply) => {
+    try {
+      const config = configStore.get()
+      if (!config.mainAgentName) {
+        return reply.code(404).send({ error: "No main agent configured" })
+      }
+      const sessionInfo = acpService.getSessionInfo(config.mainAgentName)
+      if (!sessionInfo) {
+        return reply.code(404).send({ error: "No active session for main agent" })
+      }
+      return reply.send(sessionInfo)
+    } catch (error: any) {
+      diagnosticsService.logError("remote-server", "Failed to get ACP session info", error)
+      return reply.code(500).send({ error: error?.message || "Failed to get ACP session info" })
+    }
+  })
+
+  // GET /v1/acp/session/:agentName - Get ACP session info for a specific agent
+  fastify.get("/v1/acp/session/:agentName", async (req, reply) => {
+    try {
+      const params = req.params as { agentName: string }
+      const sessionInfo = acpService.getSessionInfo(params.agentName)
+      if (!sessionInfo) {
+        return reply.code(404).send({ error: `No active session for agent '${params.agentName}'` })
+      }
+      return reply.send(sessionInfo)
+    } catch (error: any) {
+      diagnosticsService.logError("remote-server", "Failed to get ACP session info", error)
+      return reply.code(500).send({ error: error?.message || "Failed to get ACP session info" })
+    }
+  })
+
+  // POST /v1/acp/session/model - Set the model for an ACP session
+  fastify.post("/v1/acp/session/model", async (req, reply) => {
+    try {
+      const body = req.body as any
+      const { agentName, sessionId, modelId } = body || {}
+
+      if (!agentName || typeof agentName !== "string") {
+        return reply.code(400).send({ error: "Missing or invalid 'agentName'" })
+      }
+      if (!sessionId || typeof sessionId !== "string") {
+        return reply.code(400).send({ error: "Missing or invalid 'sessionId'" })
+      }
+      if (!modelId || typeof modelId !== "string") {
+        return reply.code(400).send({ error: "Missing or invalid 'modelId'" })
+      }
+
+      const result = await acpService.setSessionModel(agentName, sessionId, modelId)
+      if (!result.success) {
+        return reply.code(400).send({ error: result.error || "Failed to set model" })
+      }
+
+      diagnosticsService.logInfo("remote-server", `Set ACP session model for ${agentName} to ${modelId}`)
+      return reply.send(result)
+    } catch (error: any) {
+      diagnosticsService.logError("remote-server", "Failed to set ACP session model", error)
+      return reply.code(500).send({ error: error?.message || "Failed to set ACP session model" })
+    }
+  })
+
+  // POST /v1/acp/session/mode - Set the mode for an ACP session
+  fastify.post("/v1/acp/session/mode", async (req, reply) => {
+    try {
+      const body = req.body as any
+      const { agentName, sessionId, modeId } = body || {}
+
+      if (!agentName || typeof agentName !== "string") {
+        return reply.code(400).send({ error: "Missing or invalid 'agentName'" })
+      }
+      if (!sessionId || typeof sessionId !== "string") {
+        return reply.code(400).send({ error: "Missing or invalid 'sessionId'" })
+      }
+      if (!modeId || typeof modeId !== "string") {
+        return reply.code(400).send({ error: "Missing or invalid 'modeId'" })
+      }
+
+      const result = await acpService.setSessionMode(agentName, sessionId, modeId)
+      if (!result.success) {
+        return reply.code(400).send({ error: result.error || "Failed to set mode" })
+      }
+
+      diagnosticsService.logInfo("remote-server", `Set ACP session mode for ${agentName} to ${modeId}`)
+      return reply.send(result)
+    } catch (error: any) {
+      diagnosticsService.logError("remote-server", "Failed to set ACP session mode", error)
+      return reply.code(500).send({ error: error?.message || "Failed to set ACP session mode" })
     }
   })
 

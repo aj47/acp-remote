@@ -43,6 +43,7 @@ import { useHeaderHeight } from '@react-navigation/elements';
 import { useTheme } from '../ui/ThemeProvider';
 import { spacing, radius, Theme, hexToRgba } from '../ui/theme';
 import { MarkdownRenderer } from '../ui/MarkdownRenderer';
+import { ACPSessionBadge } from '../ui/ACPSessionBadge';
 
 export default function ChatScreen({ route, navigation }: any) {
   const insets = useSafeAreaInsets();
@@ -222,25 +223,27 @@ export default function ChatScreen({ route, navigation }: any) {
       headerTitle: () => (
         <View style={{ flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
           <Text style={{ fontSize: 17, fontWeight: '600', color: theme.colors.foreground }}>Chat</Text>
-          {currentProfile && (
-            <View style={{
-              flexDirection: 'row',
-              alignItems: 'center',
-              backgroundColor: theme.colors.primary + '33',
-              paddingHorizontal: 8,
-              paddingVertical: 2,
-              borderRadius: 10,
-              marginTop: 2,
-            }}>
-              <Text style={{
-                fontSize: 11,
-                color: theme.colors.primary,
-                fontWeight: '500',
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginTop: 2 }}>
+            {currentProfile && (
+              <View style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                backgroundColor: theme.colors.primary + '33',
+                paddingHorizontal: 8,
+                paddingVertical: 2,
+                borderRadius: 10,
               }}>
-                {currentProfile.name}
-              </Text>
-            </View>
-          )}
+                <Text style={{
+                  fontSize: 11,
+                  color: theme.colors.primary,
+                  fontWeight: '500',
+                }}>
+                  {currentProfile.name}
+                </Text>
+              </View>
+            )}
+            <ACPSessionBadge compact />
+          </View>
         </View>
       ),
       headerLeft: () => (

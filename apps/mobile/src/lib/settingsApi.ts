@@ -233,6 +233,31 @@ export class SettingsApiClient {
   }
 }
 
+// ACP Session Types
+export interface ACPModelOrMode {
+  id: string;
+  name: string;
+  description?: string;
+}
+
+export interface ACPSessionInfo {
+  agentName?: string;
+  agentTitle?: string;
+  agentVersion?: string;
+  sessionId?: string;
+  currentModel?: string;
+  currentMode?: string;
+  availableModels?: ACPModelOrMode[];
+  availableModes?: ACPModelOrMode[];
+}
+
+export interface ACPSetModelModeResult {
+  success: boolean;
+  currentModelId?: string;
+  currentModeId?: string;
+  error?: string;
+}
+
 // Push notification registration/unregistration
 export interface PushTokenRegistration {
   token: string;
@@ -247,8 +272,46 @@ export interface PushStatusResponse {
   platforms: string[];
 }
 
-// Extended client with push notification methods
+// Extended client with push notification and ACP methods
 export class ExtendedSettingsApiClient extends SettingsApiClient {
+  // ACP Session Management
+  async getACPSession(): Promise<ACPSessionInfo | null> {
+    try {
+      return await this.request<ACPSessionInfo>('/acp/session');
+    } catch (error: any) {
+      // Return null if no session (404) rather than throwing
+      if (error?.message?.includes('404') || error?.message?.includes('No main agent')) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async getACPSessionForAgent(agentName: string): Promise<ACPSessionInfo | null> {
+    try {
+      return await this.request<ACPSessionInfo>(`/acp/session/${encodeURIComponent(agentName)}`);
+    } catch (error: any) {
+      // Return null if no session (404) rather than throwing
+      if (error?.message?.includes('404') || error?.message?.includes('No active session')) {
+        return null;
+      }
+      throw error;
+    }
+  }
+
+  async setACPSessionModel(agentName: string, sessionId: string, modelId: string): Promise<ACPSetModelModeResult> {
+    return this.request<ACPSetModelModeResult>('/acp/session/model', {
+      method: 'POST',
+      body: JSON.stringify({ agentName, sessionId, modelId }),
+    });
+  }
+
+  async setACPSessionMode(agentName: string, sessionId: string, modeId: string): Promise<ACPSetModelModeResult> {
+    return this.request<ACPSetModelModeResult>('/acp/session/mode', {
+      method: 'POST',
+      body: JSON.stringify({ agentName, sessionId, modeId }),
+    });
+  }
   // Register push notification token
   async registerPushToken(registration: PushTokenRegistration): Promise<{ success: boolean; message: string; tokenCount: number }> {
     return this.request('/push/register', {

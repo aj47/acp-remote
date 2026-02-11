@@ -1678,6 +1678,7 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
   }
 
   const {
+    sessionId,
     currentIteration,
     maxIterations,
     steps,
@@ -2443,7 +2444,7 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
               )}
               {/* ACP Session info for tile variant */}
               {acpSessionInfo && (
-                <ACPSessionBadge info={acpSessionInfo} />
+                <ACPSessionBadge info={acpSessionInfo} sessionId={sessionId} />
               )}
               {/* Model info - only show for non-ACP sessions */}
               {!isComplete && modelInfo && !acpSessionInfo && (
@@ -2562,7 +2563,7 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
           )}
           {/* ACP Session info (agent and model from ACP) */}
           {acpSessionInfo && (
-            <ACPSessionBadge info={acpSessionInfo} />
+            <ACPSessionBadge info={acpSessionInfo} sessionId={sessionId} />
           )}
           {/* Model and provider info - only show for non-ACP sessions */}
           {!isComplete && modelInfo && !acpSessionInfo && (

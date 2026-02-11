@@ -1782,6 +1782,116 @@ class ACPService extends EventEmitter {
     const instance = this.agents.get(agentName)
     return instance?.agentCapabilities
   }
+
+  /**
+   * Set the session model for an ACP agent.
+   * Uses the unstable_setSessionModel method per ACP spec.
+   */
+  async setSessionModel(
+    agentName: string,
+    sessionId: string,
+    modelId: string
+  ): Promise<{ success: boolean; currentModelId?: string; error?: string }> {
+    const instance = this.agents.get(agentName)
+    if (!instance || instance.status !== "ready") {
+      return {
+        success: false,
+        error: `Agent ${agentName} is not ready`,
+      }
+    }
+
+    try {
+      const result = await this.sendRequest(agentName, "session/set_model", {
+        sessionId,
+        modelId,
+      }) as { modelId?: string }
+
+      // Update the stored session info with the new model
+      if (result?.modelId && instance.sessionInfo?.models) {
+        instance.sessionInfo.models.currentModelId = result.modelId
+      }
+
+      return {
+        success: true,
+        currentModelId: result?.modelId || modelId,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+  }
+
+  /**
+   * Set the session mode for an ACP agent.
+   * Uses the setSessionMode method per ACP spec.
+   */
+  async setSessionMode(
+    agentName: string,
+    sessionId: string,
+    modeId: string
+  ): Promise<{ success: boolean; currentModeId?: string; error?: string }> {
+    const instance = this.agents.get(agentName)
+    if (!instance || instance.status !== "ready") {
+      return {
+        success: false,
+        error: `Agent ${agentName} is not ready`,
+      }
+    }
+
+    try {
+      const result = await this.sendRequest(agentName, "session/set_mode", {
+        sessionId,
+        modeId,
+      }) as { modeId?: string }
+
+      // Update the stored session info with the new mode
+      if (result?.modeId && instance.sessionInfo?.modes) {
+        instance.sessionInfo.modes.currentModeId = result.modeId
+      }
+
+      return {
+        success: true,
+        currentModeId: result?.modeId || modeId,
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+  }
+
+  /**
+   * Get the current session info for an agent (models, modes, agent info).
+   */
+  getSessionInfo(agentName: string): {
+    agentName?: string
+    agentTitle?: string
+    agentVersion?: string
+    currentModelId?: string
+    availableModels?: Array<{ modelId: string; name: string; description?: string }>
+    currentModeId?: string
+    availableModes?: Array<{ id: string; name: string; description?: string }>
+    sessionId?: string
+  } | undefined {
+    const instance = this.agents.get(agentName)
+    if (!instance) return undefined
+
+    return {
+      agentName: instance.agentInfo?.name,
+      agentTitle: instance.agentInfo?.title,
+      agentVersion: instance.agentInfo?.version,
+      currentModelId: instance.sessionInfo?.models?.currentModelId,
+      availableModels: instance.sessionInfo?.models?.availableModels,
+      currentModeId: instance.sessionInfo?.modes?.currentModeId,
+      availableModes: instance.sessionInfo?.modes?.availableModes,
+      sessionId: instance.sessionId,
+    }
+  }
 }
 
 export const acpService = new ACPService()
