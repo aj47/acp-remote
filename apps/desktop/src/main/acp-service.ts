@@ -122,31 +122,61 @@ export interface ACPSessionOutput {
 }
 
 // ACP Tool Call Status (per protocol spec)
-export type ACPToolCallStatus = 
+export type ACPToolCallStatus =
   | "pending"        // Tool call hasn't started running yet
-  | "running"        // Tool is currently executing
+  | "in_progress"    // Tool is currently executing (ACP spec uses in_progress)
+  | "running"        // Alias for in_progress (backwards compat)
   | "completed"      // Tool completed successfully
   | "failed"         // Tool failed with an error
+
+// ACP Tool Kind (per protocol spec) - helps UI choose icons and display
+export type ACPToolKind =
+  | "read"           // Reading files or data
+  | "edit"           // Modifying files or content
+  | "delete"         // Removing files or data
+  | "move"           // Moving or renaming files
+  | "search"         // Searching for information
+  | "execute"        // Running commands or code
+  | "think"          // Internal reasoning or planning
+  | "fetch"          // Retrieving external data
+  | "other"          // Other tool types (default)
+
+// ACP Tool Call Location (file locations affected by tool call)
+export interface ACPToolCallLocation {
+  path: string       // Absolute file path being accessed or modified
+  line?: number      // Optional line number within the file
+}
 
 // ACP Tool Call Update (from session/update or request_permission)
 export interface ACPToolCallUpdate {
   toolCallId: string
   title: string
+  kind?: ACPToolKind           // Category of tool being invoked
   status?: ACPToolCallStatus
   content?: ACPToolCallContent[]
+  locations?: ACPToolCallLocation[]  // File locations affected by this tool call
   rawInput?: unknown
   rawOutput?: unknown
 }
 
 // ACP Tool Call Content (shows tool execution details)
 export interface ACPToolCallContent {
-  type: "diff" | "terminal" | "text" | "location"
+  type: "content" | "diff" | "terminal" | "text" | "location"
+  // For content type (wraps standard content blocks)
+  content?: {
+    type: "text" | "image" | "resource"
+    text?: string
+    mimeType?: string
+    data?: string
+  }
   // For diff type
   path?: string
-  patch?: string
+  oldText?: string   // Original content (null for new files)
+  newText?: string   // New content after modification
+  patch?: string     // Legacy: unified diff format
   // For terminal type
   terminalId?: string
-  // For text type
+  // For text type (legacy)
   text?: string
   // For location type
   line?: number

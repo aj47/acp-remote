@@ -90,6 +90,14 @@ type DisplayItem =
       isStreaming: boolean
     } }
   | { kind: "delegation"; id: string; data: ACPDelegationProgress }
+  | { kind: "active_tool_call"; id: string; data: {
+      toolCallId: string
+      title: string
+      status: "pending" | "in_progress" | "completed" | "error"
+      kind?: string  // read, edit, search, execute, etc.
+      locations?: Array<{ path: string; line?: number }>
+      timestamp: number
+    } }
 
 
 // Compact message component for space efficiency
@@ -435,6 +443,62 @@ const CompactMessage: React.FC<{
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+// Active Tool Call bubble - shows in-progress tool calls from ACP agents
+const ActiveToolCallBubble: React.FC<{
+  toolCall: {
+    toolCallId: string
+    title: string
+    status: "pending" | "in_progress" | "completed" | "error"
+    kind?: string
+    locations?: Array<{ path: string; line?: number }>
+    timestamp: number
+  }
+}> = ({ toolCall }) => {
+  // Map tool kind to icon class
+  const getKindIcon = (kind?: string) => {
+    switch (kind?.toLowerCase()) {
+      case "read": return "i-mingcute-file-search-line"
+      case "edit": return "i-mingcute-edit-line"
+      case "delete": return "i-mingcute-delete-line"
+      case "search": return "i-mingcute-search-line"
+      case "execute": return "i-mingcute-terminal-line"
+      case "think": return "i-mingcute-thought-line"
+      case "fetch": return "i-mingcute-download-line"
+      default: return "i-mingcute-tool-line"
+    }
+  }
+
+  const statusColor = toolCall.status === "error"
+    ? "text-red-500"
+    : toolCall.status === "completed"
+      ? "text-green-500"
+      : "text-blue-500"
+
+  return (
+    <div className="flex items-center gap-1.5 py-0.5 px-1.5 rounded text-[11px] bg-muted/30">
+      <span className={cn(getKindIcon(toolCall.kind), "h-3 w-3 flex-shrink-0", statusColor)} />
+      <span className="font-mono font-medium truncate">{toolCall.title}</span>
+      {toolCall.status === "in_progress" && (
+        <Loader2 className={cn("h-3 w-3 animate-spin", statusColor)} />
+      )}
+      {toolCall.status === "pending" && (
+        <Clock className={cn("h-3 w-3", statusColor)} />
+      )}
+      {toolCall.status === "completed" && (
+        <Check className={cn("h-3 w-3", statusColor)} />
+      )}
+      {toolCall.status === "error" && (
+        <XCircle className={cn("h-3 w-3", statusColor)} />
+      )}
+      {toolCall.locations && toolCall.locations.length > 0 && (
+        <span className="text-[10px] opacity-50 truncate">
+          {toolCall.locations.map(loc => loc.line ? `${loc.path}:${loc.line}` : loc.path).join(", ")}
+        </span>
+      )}
     </div>
   )
 }
@@ -1941,6 +2005,31 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
     }
   }
 
+  // Add active tool call items from steps (for ACP agent real-time tool visibility)
+  // Only show tool calls that are in progress and not yet in conversation history
+  const conversationToolNames = new Set(
+    messages.flatMap(m => m.toolCalls?.map(tc => tc.name) ?? [])
+  )
+  for (const step of progress.steps) {
+    // Only add tool_call steps that have toolCall data and are not completed
+    if (step.type === "tool_call" && step.toolCall && step.status !== "completed") {
+      // Skip if this tool is already shown in conversation history
+      if (conversationToolNames.has(step.toolCall.name)) continue
+
+      displayItems.push({
+        kind: "active_tool_call",
+        id: `active-tool-${step.id}`,
+        data: {
+          toolCallId: step.id,
+          title: step.toolCall.name,
+          status: step.status === "error" ? "error" : step.status === "pending" ? "pending" : "in_progress",
+          kind: step.title?.split(":")[0]?.toLowerCase(), // Extract kind from title like "read: Reading file"
+          timestamp: step.timestamp,
+        },
+      })
+    }
+  }
+
   // Sort all display items by timestamp to ensure delegations appear in chronological order
   // Items without timestamps (tool_approval, streaming) will be handled separately
   const getItemTimestamp = (item: DisplayItem): number | null => {
@@ -1955,6 +2044,8 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
         return item.data.startTime
       case "retry_status":
         return item.data.startedAt
+      case "active_tool_call":
+        return item.data.timestamp
       case "tool_approval":
       case "streaming":
         // These represent current state and should stay at the end
@@ -2390,6 +2481,13 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
                             onToggleExpand={() => toggleItemExpansion(itemKey, true)}
                           />
                         )
+                      } else if (item.kind === "active_tool_call") {
+                        return (
+                          <ActiveToolCallBubble
+                            key={itemKey}
+                            toolCall={item.data}
+                          />
+                        )
                       } else {
                         return (
                           <ToolExecutionBubble
@@ -2752,6 +2850,13 @@ export const AgentProgress: React.FC<AgentProgressProps> = ({
                       delegation={item.data}
                       isExpanded={delegationExpanded}
                       onToggleExpand={() => toggleItemExpansion(itemKey, true)}
+                    />
+                  )
+                } else if (item.kind === "active_tool_call") {
+                  return (
+                    <ActiveToolCallBubble
+                      key={itemKey}
+                      toolCall={item.data}
                     />
                   )
                 } else {

@@ -5,7 +5,7 @@
  * This allows using agents like Claude Code as the "brain" for ACP Remote.
  */
 
-import { acpService, ACPContentBlock } from "./acp-service"
+import { acpService, ACPContentBlock, ACPToolCallUpdate, ACPToolCallStatus } from "./acp-service"
 import {
   getSessionForConversation,
   setSessionForConversation,
@@ -195,10 +195,16 @@ export async function processTranscriptWithACPAgent(
   let stepIdCounter = 0
   const generateStepId = (prefix: string): string => `${prefix}-${Date.now()}-${++stepIdCounter}`
 
+  // Track pending tool calls that need to be included in conversation history
+  // These are collected as tool_use blocks arrive and attached to the next assistant message
+  const pendingToolCalls: Array<{ name: string; arguments: Record<string, unknown> }> = []
+
   // Load existing conversation history for UI display
   type ConversationHistoryMessage = {
     role: "user" | "assistant" | "tool"
     content: string
+    toolCalls?: Array<{ name: string; arguments: Record<string, unknown> }>
+    toolResults?: Array<{ success: boolean; content: string; error?: string }>
     timestamp?: number
   }
   let conversationHistory: ConversationHistoryMessage[] = []
@@ -340,12 +346,25 @@ export async function processTranscriptWithACPAgent(
               llmContent: accumulatedText, // Use accumulated text, not just this block
             })
           } else if (block.type === "tool_use" && block.name) {
+            // Add to pending tool calls for conversation history
+            const toolArgs = (typeof block.input === 'object' && block.input !== null)
+              ? block.input as Record<string, unknown>
+              : {}
+            pendingToolCalls.push({
+              name: block.name,
+              arguments: toolArgs,
+            })
+
             const step: AgentProgressStep = {
               id: generateStepId("acp-tool"),
               type: "tool_call",
               title: `Tool: ${block.name}`,
               status: "in_progress",
               timestamp: Date.now(),
+              toolCall: {
+                name: block.name,
+                arguments: toolArgs,
+              },
             }
             // Attach execution stats if available from tool response
             if (event.toolResponseStats) {
@@ -409,6 +428,92 @@ export async function processTranscriptWithACPAgent(
 
     acpService.on("sessionUpdate", progressHandler)
 
+    // Track active tool calls by ID for status updates
+    const activeToolCalls = new Map<string, {
+      toolCallId: string
+      title: string
+      kind?: string
+      status: ACPToolCallStatus
+      startTime: number
+      locations?: Array<{ path: string; line?: number }>
+    }>()
+
+    // Set up listener for tool call updates (separate from sessionUpdate)
+    // This provides real-time visibility into ACP agent tool execution
+    const toolCallUpdateHandler = (event: {
+      agentName: string
+      sessionId: string
+      toolCall: ACPToolCallUpdate
+      awaitingPermission: boolean
+    }) => {
+      if (event.sessionId !== acpSessionId) return
+
+      const { toolCall } = event
+      logApp(`[ACP Main] Tool call update: ${toolCall.toolCallId} - ${toolCall.title} [${toolCall.status || 'unknown'}]`)
+
+      // Track this tool call
+      const existing = activeToolCalls.get(toolCall.toolCallId)
+      const toolCallEntry = {
+        toolCallId: toolCall.toolCallId,
+        title: toolCall.title,
+        kind: toolCall.kind,
+        status: toolCall.status || "pending" as ACPToolCallStatus,
+        startTime: existing?.startTime || Date.now(),
+        locations: toolCall.locations,
+      }
+      activeToolCalls.set(toolCall.toolCallId, toolCallEntry)
+
+      // Convert tool calls to progress steps for UI display
+      const toolSteps: AgentProgressStep[] = []
+      for (const [id, tc] of activeToolCalls) {
+        // Map ACP status to step status
+        let stepStatus: AgentProgressStep["status"] = "in_progress"
+        if (tc.status === "pending") stepStatus = "pending"
+        else if (tc.status === "in_progress" || tc.status === "running") stepStatus = "in_progress"
+        else if (tc.status === "completed") stepStatus = "completed"
+        else if (tc.status === "failed") stepStatus = "error"
+
+        // Build description with location info if available
+        let description = tc.title
+        if (tc.locations && tc.locations.length > 0) {
+          const locStr = tc.locations.map(loc =>
+            loc.line ? `${loc.path}:${loc.line}` : loc.path
+          ).join(", ")
+          description += ` (${locStr})`
+        }
+
+        toolSteps.push({
+          id: `acp-tool-${id}`,
+          type: "tool_call",
+          title: tc.kind ? `${tc.kind}: ${tc.title}` : tc.title,
+          description,
+          status: stepStatus,
+          timestamp: tc.startTime,
+          toolCall: {
+            name: tc.title,
+            arguments: toolCall.rawInput,
+          },
+        })
+      }
+
+      // Emit progress update with all active tool calls
+      if (toolSteps.length > 0) {
+        emitProgress(
+          toolSteps,
+          false,
+          undefined,
+          {
+            text: accumulatedText,
+            isStreaming: true,
+          }
+        ).catch(err => {
+          logApp(`[ACP Main] Failed to emit tool call progress: ${err}`)
+        })
+      }
+    }
+
+    acpService.on("toolCallUpdate", toolCallUpdateHandler)
+
     try {
       // Check if this is the first prompt for this session (context not yet injected)
       const shouldInjectContext = !hasContextBeenInjected(conversationId)
@@ -438,11 +543,31 @@ export async function processTranscriptWithACPAgent(
       const finalResponse = result.response || accumulatedText || undefined
 
       // Add assistant response to conversation history for display
-      if (finalResponse) {
-        conversationHistory.push({
+      // Include any tool calls that were executed during this response
+      if (finalResponse || pendingToolCalls.length > 0) {
+        const assistantMessage: ConversationHistoryMessage = {
           role: "assistant",
-          content: finalResponse,
+          content: finalResponse || "",
           timestamp: Date.now(),
+        }
+
+        // Attach pending tool calls if any were executed
+        if (pendingToolCalls.length > 0) {
+          assistantMessage.toolCalls = [...pendingToolCalls]
+          logApp(`[ACP Main] Adding ${pendingToolCalls.length} tool calls to conversation history`)
+        }
+
+        conversationHistory.push(assistantMessage)
+
+        // Also persist tool calls to the conversation service so they appear in UI
+        // The conversation service will handle storing them properly
+        await conversationService.addMessageToConversation(
+          conversationId,
+          finalResponse || "",
+          "assistant",
+          pendingToolCalls.length > 0 ? pendingToolCalls : undefined
+        ).catch(err => {
+          logApp(`[ACP Main] Failed to persist assistant message with tool calls: ${err}`)
         })
       }
 
@@ -473,6 +598,7 @@ export async function processTranscriptWithACPAgent(
       }
     } finally {
       acpService.off("sessionUpdate", progressHandler)
+      acpService.off("toolCallUpdate", toolCallUpdateHandler)
     }
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : String(error)
