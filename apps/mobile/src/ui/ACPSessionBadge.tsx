@@ -143,7 +143,7 @@ export function ACPSessionBadge({ compact = false }: ACPSessionBadgeProps) {
 
 const styles = StyleSheet.create({
   badge: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingVertical: 4, borderRadius: 8, gap: 4 },
-  badgeText: { fontSize: 11, fontWeight: '500', maxWidth: 100 },
+  badgeText: { fontSize: 11, fontWeight: '500' },
   chevron: { fontSize: 8 },
   modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center' },
   modalContent: { width: '80%', maxHeight: '60%', borderRadius: 12, padding: 16 },
