@@ -1860,6 +1860,190 @@ class ACPService extends EventEmitter {
   }
 
   /**
+   * Load (resume) an existing ACP session.
+   *
+   * Per ACP spec, session/load requires the agent to support `loadSession` capability.
+   * The agent will replay the conversation history via session/update notifications.
+   *
+   * @param agentName Name of the ACP agent
+   * @param sessionId The session ID to load
+   * @param cwd Working directory for the session
+   * @param onHistoryUpdate Callback for receiving history updates during replay
+   * @returns Result with success status, loaded session info, or error
+   */
+  async loadSession(
+    agentName: string,
+    sessionId: string,
+    cwd: string,
+    onHistoryUpdate?: (content: ACPContentBlock[]) => void
+  ): Promise<{
+    success: boolean
+    sessionId?: string
+    error?: string
+    historyReplayComplete?: boolean
+  }> {
+    // Ensure agent is spawned and ready
+    let instance = this.agents.get(agentName)
+    if (!instance || instance.status !== "ready") {
+      try {
+        await this.spawnAgent(agentName)
+        instance = this.agents.get(agentName)
+      } catch (error) {
+        const errorMessage = error instanceof Error ? error.message : String(error)
+        return {
+          success: false,
+          error: `Failed to spawn agent: ${errorMessage}`,
+        }
+      }
+    }
+
+    if (!instance || instance.status !== "ready") {
+      return {
+        success: false,
+        error: `Agent ${agentName} is not ready`,
+      }
+    }
+
+    // Initialize if not already done
+    if (!instance.initialized) {
+      await this.initializeAgent(agentName)
+      instance = this.agents.get(agentName)
+    }
+
+    // Check if agent supports loadSession capability
+    const capabilities = this.getAgentCapabilities(agentName)
+    if (!capabilities?.loadSession) {
+      logACP("WARN", agentName, "session/load", "Agent does not support loadSession capability")
+      return {
+        success: false,
+        error: "Agent does not support session loading",
+      }
+    }
+
+    try {
+      // Build MCP servers list (same as createSession)
+      const mcpServers: Array<{
+        type?: string
+        name: string
+        url?: string
+        headers?: Array<{ name: string; value: string }>
+      }> = []
+
+      const config = configStore.get()
+      if (config.acpInjectBuiltinTools !== false && config.remoteServerEnabled) {
+        const port = config.remoteServerPort || 3210
+        const apiKey = config.remoteServerApiKey
+
+        if (apiKey) {
+          mcpServers.push({
+            type: "http",
+            name: "acpremote-builtin",
+            url: `http://127.0.0.1:${port}/mcp`,
+            headers: [
+              { name: "Authorization", value: `Bearer ${apiKey}` },
+            ],
+          })
+        }
+      }
+
+      logACP("REQUEST", agentName, "session/load", `Loading session ${sessionId} with CWD: ${cwd}`)
+
+      // Set up listener for history replay if callback provided
+      let historyReplayComplete = false
+      const historyHandler = onHistoryUpdate ? (event: {
+        agentName: string
+        sessionId: string
+        content?: ACPContentBlock[]
+        isComplete?: boolean
+      }) => {
+        if (event.sessionId === sessionId && event.content) {
+          onHistoryUpdate(event.content)
+        }
+        if (event.isComplete) {
+          historyReplayComplete = true
+        }
+      } : undefined
+
+      if (historyHandler) {
+        this.on("sessionUpdate", historyHandler)
+      }
+
+      try {
+        const result = await this.sendRequest(agentName, "session/load", {
+          sessionId,
+          cwd,
+          mcpServers: mcpServers.length > 0 ? mcpServers : undefined,
+        }) as {
+          sessionId?: string
+          models?: {
+            availableModels: Array<{ modelId: string; name: string; description?: string }>
+            currentModelId: string
+          }
+          modes?: {
+            availableModes: Array<{ id: string; name: string; description?: string }>
+            currentModeId: string
+          }
+          error?: { message?: string }
+        }
+
+        // Remove listener after load completes
+        if (historyHandler) {
+          this.off("sessionUpdate", historyHandler)
+        }
+
+        if (result?.error) {
+          logACP("ERROR", agentName, "session/load", `Failed: ${result.error.message}`)
+          return {
+            success: false,
+            error: result.error.message || "Session load failed",
+          }
+        }
+
+        const loadedSessionId = result?.sessionId || sessionId
+
+        // Store session ID on instance
+        instance!.sessionId = loadedSessionId
+
+        // Store models from response
+        if (result?.models) {
+          instance!.sessionInfo = {
+            ...instance!.sessionInfo,
+            models: result.models,
+          }
+        }
+
+        // Store modes from response
+        if (result?.modes) {
+          instance!.sessionInfo = {
+            ...instance!.sessionInfo,
+            modes: result.modes,
+          }
+        }
+
+        logACP("RESPONSE", agentName, "session/load", `Session loaded: ${loadedSessionId}`)
+
+        return {
+          success: true,
+          sessionId: loadedSessionId,
+          historyReplayComplete,
+        }
+      } finally {
+        // Ensure listener is removed even on error
+        if (historyHandler) {
+          this.off("sessionUpdate", historyHandler)
+        }
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error)
+      logACP("ERROR", agentName, "session/load", `Exception: ${errorMessage}`)
+      return {
+        success: false,
+        error: errorMessage,
+      }
+    }
+  }
+
+  /**
    * Set the session model for an ACP agent.
    * Uses the unstable_setSessionModel method per ACP spec.
    */
