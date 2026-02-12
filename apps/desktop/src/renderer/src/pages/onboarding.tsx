@@ -18,11 +18,61 @@ import { useMutation } from "@tanstack/react-query"
 import { KeyRecorder } from "@renderer/components/key-recorder"
 import { getMcpToolsShortcutDisplay } from "@shared/key-utils"
 
-type OnboardingStep = "welcome" | "api-key" | "dictation" | "agent" | "complete"
+type OnboardingStep = "welcome" | "agent-select" | "api-key" | "dictation" | "agent" | "complete"
+
+// Predefined ACP agents that users can choose from
+const PREDEFINED_AGENTS = [
+  {
+    id: "auggie",
+    name: "auggie",
+    displayName: "Auggie",
+    description: "Augment Code's AI coding assistant with native ACP support",
+    command: "auggie",
+    args: "--acp",
+    icon: "i-mingcute-code-fill",
+    installUrl: "https://www.augmentcode.com/",
+    installCommand: "npm install -g @anthropics/augment-code",
+  },
+  {
+    id: "claude-code",
+    name: "claude-code",
+    displayName: "Claude Code",
+    description: "Anthropic's Claude for coding tasks via ACP",
+    command: "claude",
+    args: "--acp",
+    icon: "i-mingcute-ai-fill",
+    installUrl: "https://github.com/anthropics/claude-code",
+    installCommand: "npm install -g @anthropics/claude-code",
+  },
+  {
+    id: "codex",
+    name: "codex",
+    displayName: "Codex CLI",
+    description: "OpenAI's Codex CLI for code generation",
+    command: "codex",
+    args: "--acp",
+    icon: "i-mingcute-terminal-fill",
+    installUrl: "https://github.com/openai/codex",
+    installCommand: "npm install -g @openai/codex",
+  },
+  {
+    id: "internal",
+    name: "general-assistant",
+    displayName: "Built-in Assistant",
+    description: "Use ACP Remote's built-in AI assistant (requires API key)",
+    command: "",
+    args: "",
+    icon: "i-mingcute-robot-fill",
+    installUrl: "",
+    installCommand: "",
+    isInternal: true,
+  },
+]
 
 export function Component() {
   const [step, setStep] = useState<OnboardingStep>("welcome")
   const [apiKey, setApiKey] = useState("")
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null)
   const [isRecording, setIsRecording] = useState(false)
   const [isTranscribing, setIsTranscribing] = useState(false)
   const [dictationResult, setDictationResult] = useState<string | null>(null)
@@ -166,11 +216,54 @@ export function Component() {
     navigate("/")
   }, [saveConfigAsync, navigate])
 
+  const handleAgentSelect = useCallback(async (agentId: string) => {
+    setSelectedAgentId(agentId)
+    const agent = PREDEFINED_AGENTS.find((a) => a.id === agentId)
+    if (!agent) return
+
+    // For external ACP agents, create the agent profile and set as main agent
+    if (!agent.isInternal) {
+      // Create the agent profile via tipcClient
+      await tipcClient.createAgentProfile({
+        profile: {
+          name: agent.name,
+          displayName: agent.displayName,
+          description: agent.description,
+          connection: {
+            type: "acp",
+            command: agent.command,
+            args: agent.args.split(" ").filter(Boolean),
+          },
+          role: "external-agent",
+          enabled: true,
+          isBuiltIn: false,
+          isUserProfile: false,
+          isAgentTarget: true,
+        },
+      })
+
+      // Set as main agent
+      await saveConfigAsync({ mainAgentName: agent.name })
+
+      // Skip API key step for external agents, go directly to dictation
+      setStep("dictation")
+    } else {
+      // For internal agent, need API key, go to api-key step
+      setStep("api-key")
+    }
+  }, [saveConfigAsync])
+
   return (
     <div className="app-drag-region flex h-dvh items-center justify-center p-10">
       <div className="w-full max-w-2xl -mt-10">
         {step === "welcome" && (
-          <WelcomeStep onNext={() => setStep("api-key")} onSkip={handleSkipOnboarding} />
+          <WelcomeStep onNext={() => setStep("agent-select")} onSkip={handleSkipOnboarding} />
+        )}
+        {step === "agent-select" && (
+          <AgentSelectStep
+            onSelect={handleAgentSelect}
+            onBack={() => setStep("welcome")}
+          />
         )}
         {step === "api-key" && (
           <ApiKeyStep
@@ -178,7 +271,7 @@ export function Component() {
             onApiKeyChange={setApiKey}
             onNext={handleSaveApiKey}
             onSkip={handleSkipApiKey}
-            onBack={() => setStep("welcome")}
+            onBack={() => setStep("agent-select")}
           />
         )}
         {step === "dictation" && (
@@ -190,7 +283,7 @@ export function Component() {
             onStartRecording={handleStartRecording}
             onStopRecording={handleStopRecording}
             onNext={() => setStep("agent")}
-            onBack={() => setStep("api-key")}
+            onBack={() => selectedAgentId === "internal" ? setStep("api-key") : setStep("agent-select")}
             config={configQuery.data}
             onSaveConfig={saveConfig}
             transcriptionError={transcriptionError}
@@ -230,6 +323,82 @@ function WelcomeStep({ onNext, onSkip }: { onNext: () => void; onSkip: () => voi
         </Button>
         <Button variant="ghost" onClick={onSkip} className="text-muted-foreground">
           Skip Tutorial
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+// Agent Select Step
+function AgentSelectStep({
+  onSelect,
+  onBack,
+}: {
+  onSelect: (agentId: string) => void
+  onBack: () => void
+}) {
+  const [isLoading, setIsLoading] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+
+  const handleSelect = async (agentId: string) => {
+    setSelectedId(agentId)
+    setIsLoading(true)
+    try {
+      await onSelect(agentId)
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  return (
+    <div>
+      <StepIndicator current={1} total={3} />
+      <h2 className="text-2xl font-bold mb-2 text-center">Choose Your AI Agent</h2>
+      <p className="text-muted-foreground mb-6 text-center">
+        Select an AI coding agent to power your voice commands. You can change this later in Settings.
+      </p>
+
+      <div className="grid gap-3 mb-6">
+        {PREDEFINED_AGENTS.map((agent) => (
+          <button
+            key={agent.id}
+            onClick={() => handleSelect(agent.id)}
+            disabled={isLoading}
+            className={`flex items-start gap-4 p-4 rounded-lg border text-left transition-all hover:border-primary/50 hover:bg-muted/50 ${
+              selectedId === agent.id ? "border-primary bg-primary/10" : "bg-muted/30"
+            } ${isLoading && selectedId !== agent.id ? "opacity-50" : ""}`}
+          >
+            <div className="flex-shrink-0 w-10 h-10 rounded-full bg-primary/10 flex items-center justify-center">
+              <span className={`${agent.icon} text-xl text-primary`}></span>
+            </div>
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2">
+                <h3 className="font-semibold">{agent.displayName}</h3>
+                {agent.isInternal && (
+                  <span className="text-xs px-2 py-0.5 rounded bg-muted text-muted-foreground">
+                    Requires API Key
+                  </span>
+                )}
+              </div>
+              <p className="text-sm text-muted-foreground mt-1">{agent.description}</p>
+              {!agent.isInternal && agent.installCommand && (
+                <p className="text-xs text-muted-foreground mt-2 font-mono bg-muted/50 rounded px-2 py-1">
+                  {agent.installCommand}
+                </p>
+              )}
+            </div>
+            {isLoading && selectedId === agent.id ? (
+              <span className="i-mingcute-loading-fill animate-spin text-primary"></span>
+            ) : (
+              <span className="i-mingcute-arrow-right-line text-muted-foreground"></span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      <div className="flex justify-between">
+        <Button variant="outline" onClick={onBack} disabled={isLoading}>
+          Back
         </Button>
       </div>
     </div>
