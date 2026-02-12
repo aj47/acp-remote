@@ -220,11 +220,17 @@ async function runAgent(options: RunAgentOptions): Promise<{
         agentSessionTracker.errorSession(sessionId, result.error || "Unknown error")
       }
 
-      // Return in the expected format
+      // Return in the expected format with conversation history from ACP agent
+      diagnosticsService.logInfo("remote-server", `ACP result has conversationHistory: ${!!result.conversationHistory}, length: ${result.conversationHistory?.length || 0}`)
+      if (result.conversationHistory && result.conversationHistory.length > 0) {
+        diagnosticsService.logInfo("remote-server", `First message in conversationHistory: ${JSON.stringify(result.conversationHistory[0]).substring(0, 200)}`)
+      }
       return {
         content: result.response || result.error || "No response from agent",
         conversationId,
-        conversationHistory: [], // ACP agent doesn't return detailed history in the same format
+        conversationHistory: result.conversationHistory
+          ? formatConversationHistoryForApi(result.conversationHistory)
+          : [],
       }
     }
 

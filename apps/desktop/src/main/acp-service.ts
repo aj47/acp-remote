@@ -267,12 +267,9 @@ class ACPService extends EventEmitter {
     const { agentName, method, params } = event
 
     if (method === "session/update") {
-      this.handleSessionUpdate(agentName, params as {
-        sessionId?: string
-        content?: ACPContentBlock[]
-        stopReason?: string
-        isComplete?: boolean
-      })
+      // Pass the full params object - handleSessionUpdate will extract what it needs
+      // including the nested update object for Auggie/Augment ACP format
+      this.handleSessionUpdate(agentName, params as Parameters<typeof this.handleSessionUpdate>[1])
     } else if (method === "$/log" || method === "notifications/log") {
       // Log message from agent
       const logParams = params as { level?: string; message?: string; data?: unknown }
@@ -295,11 +292,19 @@ class ACPService extends EventEmitter {
     // Tool call updates per ACP spec
     toolCall?: ACPToolCallUpdate
     // ACP agents may nest content inside an "update" object
+    // Auggie/Augment ACP format puts tool call data directly in update when sessionUpdate="tool_call"
     update?: {
       sessionUpdate?: string
       content?: ACPContentBlock | ACPContentBlock[]
       stopReason?: string
       toolCall?: ACPToolCallUpdate
+      // Auggie/Augment ACP tool_call format - tool call data is directly in update
+      toolCallId?: string
+      title?: string
+      kind?: string
+      status?: string
+      rawInput?: unknown
+      rawOutput?: unknown
     }
     // Claude Code metadata (Task 2.3) - updated to match actual structure from Claude Code agent
     _meta?: {
@@ -321,6 +326,14 @@ class ACPService extends EventEmitter {
       }
     }
   }): void {
+    // Debug logging to trace what params are being received
+    logApp(`[ACP Service] handleSessionUpdate called for agent: ${agentName}`)
+    logApp(`[ACP Service] params.update exists: ${!!params.update}`)
+    if (params.update) {
+      logApp(`[ACP Service] params.update.sessionUpdate: ${params.update.sessionUpdate}`)
+      logApp(`[ACP Service] params.update.toolCallId: ${params.update.toolCallId}`)
+    }
+
     const instance = this.agents.get(agentName)
     // Generate a unique fallback session ID per agent to avoid mixing output from different agents/runs
     // when sessionId is not provided by the notification
@@ -380,8 +393,40 @@ class ACPService extends EventEmitter {
     }
 
     // Handle tool call updates from the notification
-    const toolCallUpdate = params.toolCall || params.update?.toolCall
+    // The update object can contain tool call info in multiple formats:
+    // 1. params.toolCall - direct toolCall property
+    // 2. params.update.toolCall - nested toolCall property
+    // 3. params.update with sessionUpdate="tool_call" - Auggie/Augment ACP format
+    //    In this case, the tool call data is directly in the update object
+    // 4. params.update with sessionUpdate="tool_call_update" - tool completion status
+    let toolCallUpdate = params.toolCall || params.update?.toolCall
+
+    // Handle Auggie/Augment ACP format where tool call data is directly in update object
+    if (!toolCallUpdate && params.update?.sessionUpdate === "tool_call" && params.update.toolCallId) {
+      // Convert the update object to ACPToolCallUpdate format
+      toolCallUpdate = {
+        toolCallId: params.update.toolCallId as string,
+        title: (params.update.title as string) || "Tool Call",
+        kind: params.update.kind as ACPToolKind | undefined,
+        status: "running" as ACPToolCallStatus,
+        content: params.update.content as ACPToolCallContent[] | undefined,
+        rawInput: params.update.rawInput,
+      }
+      logApp(`[ACP Service] Detected Auggie tool_call format, toolCallId: ${toolCallUpdate.toolCallId}, title: ${toolCallUpdate.title}`)
+    }
+
+    // Handle tool_call_update (completion) events
+    if (!toolCallUpdate && params.update?.sessionUpdate === "tool_call_update" && params.update.toolCallId) {
+      toolCallUpdate = {
+        toolCallId: params.update.toolCallId as string,
+        title: (params.update.title as string) || "Tool Call",
+        status: params.update.status as ACPToolCallStatus || "completed",
+        rawOutput: params.update.rawOutput,
+      }
+    }
+
     if (toolCallUpdate) {
+      logApp(`[ACP Service] Emitting toolCallUpdate event for sessionId: ${sessionId}, toolCallId: ${toolCallUpdate.toolCallId}`)
       this.emit("toolCallUpdate", {
         agentName,
         sessionId,
@@ -851,6 +896,7 @@ class ACPService extends EventEmitter {
           if (!isChunk) {
             logACP("NOTIFICATION", agentName, `← ${notification.method}`, notification.params)
           }
+          logApp(`[ACP Service] About to emit notification event. Listener count: ${this.listenerCount("notification")}`)
           this.emit("notification", { agentName, method: notification.method, params: notification.params })
         }
       } catch {
@@ -1606,11 +1652,11 @@ class ACPService extends EventEmitter {
       if (Array.isArray(contentBlocks)) {
         for (const block of contentBlocks) {
           if (typeof block === "string") {
-            resultText += block + "\n"
+            resultText += block
           } else if (block?.type === "text" && block?.text) {
-            resultText += block.text + "\n"
+            resultText += block.text
           } else if (block?.text) {
-            resultText += block.text + "\n"
+            resultText += block.text
           }
         }
       } else if (typeof contentBlocks === "string") {
@@ -1628,7 +1674,7 @@ class ACPService extends EventEmitter {
         if (sessionOutput) {
           for (const block of sessionOutput.contentBlocks) {
             if (block.type === "text" && block.text && !resultText.includes(block.text)) {
-              resultText += block.text + "\n"
+              resultText += block.text
             }
           }
         }
@@ -1767,9 +1813,9 @@ class ACPService extends EventEmitter {
       if (Array.isArray(contentBlocks)) {
         for (const block of contentBlocks) {
           if (typeof block === "string") {
-            responseText += block + "\n"
+            responseText += block
           } else if (block?.type === "text" && block?.text) {
-            responseText += block.text + "\n"
+            responseText += block.text
           }
         }
       }
@@ -1779,7 +1825,7 @@ class ACPService extends EventEmitter {
       if (sessionOutput) {
         for (const block of sessionOutput.contentBlocks) {
           if (block.type === "text" && block.text && !responseText.includes(block.text)) {
-            responseText += block.text + "\n"
+            responseText += block.text
           }
         }
       }

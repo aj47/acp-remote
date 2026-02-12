@@ -174,6 +174,14 @@ export interface ACPMainAgentResult {
   stopReason?: string
   /** Error message if failed */
   error?: string
+  /** Conversation history including tool calls and results */
+  conversationHistory?: Array<{
+    role: "user" | "assistant" | "tool"
+    content: string
+    toolCalls?: Array<{ name: string; arguments: Record<string, unknown> }>
+    toolResults?: Array<{ success: boolean; content: string; error?: string }>
+    timestamp?: number
+  }>
 }
 
 /**
@@ -334,6 +342,8 @@ export async function processTranscriptWithACPAgent(
       if (event.content) {
         for (const block of event.content) {
           if (block.type === "text" && block.text) {
+            // Debug: log text block content with character codes for newline investigation
+            logApp(`[ACP Main] Text block received: "${block.text.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}" (length: ${block.text.length})`)
             // Accumulate text for streaming display
             accumulatedText += block.text
             steps.push({
@@ -421,7 +431,10 @@ export async function processTranscriptWithACPAgent(
           text: accumulatedText,
           isStreaming: !event.isComplete,
         }
-      ).catch(err => {
+      ).then(() => {
+        // Debug: log accumulated text being sent to client
+        logApp(`[ACP Main] Sent streamingContent: "${accumulatedText.replace(/\n/g, '\\n').replace(/\r/g, '\\r')}"`)
+      }).catch(err => {
         logApp(`[ACP Main] Failed to emit progress: ${err}`)
       })
     }
@@ -446,6 +459,7 @@ export async function processTranscriptWithACPAgent(
       toolCall: ACPToolCallUpdate
       awaitingPermission: boolean
     }) => {
+      logApp(`[ACP Main] toolCallUpdateHandler received event. eventSessionId: ${event.sessionId}, acpSessionId: ${acpSessionId}, match: ${event.sessionId === acpSessionId}`)
       if (event.sessionId !== acpSessionId) return
 
       const { toolCall } = event
@@ -462,6 +476,19 @@ export async function processTranscriptWithACPAgent(
         locations: toolCall.locations,
       }
       activeToolCalls.set(toolCall.toolCallId, toolCallEntry)
+
+      // Also add to pendingToolCalls if this is a new tool call (for conversation history)
+      // This ensures tool calls from toolCallUpdate events appear in the UI
+      if (!existing) {
+        const toolArgs = (typeof toolCall.rawInput === 'object' && toolCall.rawInput !== null)
+          ? toolCall.rawInput as Record<string, unknown>
+          : {}
+        pendingToolCalls.push({
+          name: toolCall.title,
+          arguments: toolArgs,
+        })
+        logApp(`[ACP Main] Added tool call to pendingToolCalls from toolCallUpdate: ${toolCall.title}`)
+      }
 
       // Convert tool calls to progress steps for UI display
       const toolSteps: AgentProgressStep[] = []
@@ -588,6 +615,11 @@ export async function processTranscriptWithACPAgent(
       })
 
       logApp(`[ACP Main] Completed - success: ${result.success}, response length: ${finalResponse?.length || 0}`)
+      logApp(`[ACP Main] Returning conversationHistory with ${conversationHistory.length} messages, pendingToolCalls: ${pendingToolCalls.length}`)
+      if (conversationHistory.length > 0) {
+        const lastMsg = conversationHistory[conversationHistory.length - 1]
+        logApp(`[ACP Main] Last message has toolCalls: ${!!lastMsg.toolCalls}, count: ${lastMsg.toolCalls?.length || 0}`)
+      }
 
       return {
         success: result.success,
@@ -595,6 +627,7 @@ export async function processTranscriptWithACPAgent(
         acpSessionId,
         stopReason: result.stopReason,
         error: result.error,
+        conversationHistory,
       }
     } finally {
       acpService.off("sessionUpdate", progressHandler)
@@ -621,6 +654,7 @@ export async function processTranscriptWithACPAgent(
     return {
       success: false,
       error: errorMessage,
+      conversationHistory: [],
     }
   }
 }
