@@ -304,8 +304,49 @@ export interface PushStatusResponse {
   platforms: string[];
 }
 
+// External Session Types (for unified conversation history)
+export type ExternalSessionSource = 'augment' | 'claude-code' | 'acp-remote';
+
+export interface UnifiedConversation extends ServerConversation {
+  source: ExternalSessionSource;
+  workspacePath?: string;
+  filePath?: string;
+}
+
+export interface ExternalSessionProvider {
+  source: ExternalSessionSource;
+  displayName: string;
+}
+
+export interface ContinueSessionResult {
+  success: boolean;
+  message?: string;
+  error?: string;
+}
+
 // Extended client with push notification and ACP methods
 export class ExtendedSettingsApiClient extends SettingsApiClient {
+  // External Session Management (unified conversation history)
+  async getUnifiedConversations(limit?: number): Promise<{ conversations: UnifiedConversation[] }> {
+    const query = limit ? `?limit=${limit}` : '';
+    return this.request<{ conversations: UnifiedConversation[] }>(`/conversations/unified${query}`);
+  }
+
+  async getExternalSessionProviders(): Promise<{ providers: ExternalSessionProvider[] }> {
+    return this.request<{ providers: ExternalSessionProvider[] }>('/external-sessions/providers');
+  }
+
+  async continueExternalSession(
+    sessionId: string,
+    source: ExternalSessionSource,
+    workspacePath?: string
+  ): Promise<ContinueSessionResult> {
+    return this.request<ContinueSessionResult>('/external-sessions/continue', {
+      method: 'POST',
+      body: JSON.stringify({ sessionId, source, workspacePath }),
+    });
+  }
+
   // ACP Session Management
   async getACPSession(): Promise<ACPSessionInfo | null> {
     try {

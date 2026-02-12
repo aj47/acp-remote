@@ -340,14 +340,11 @@ export default function ChatScreen({ route, navigation }: any) {
   useEffect(() => { messagesRef.current = messages; }, [messages]);
 	// Stable ref to the latest send() to avoid stale closures in speech callbacks
 	const sendRef = useRef<(text: string) => Promise<void>>(async () => {});
-	// Voice debug logging (dev-only) to help diagnose recording/send lifecycle.
-	const voiceLogSeqRef = useRef(0);
+	// Voice debug logging - only in dev mode
 	const voiceLog = useCallback((msg: string, extra?: any) => {
 		if (!__DEV__) return;
-		voiceLogSeqRef.current += 1;
-		const seq = voiceLogSeqRef.current;
-		if (typeof extra !== 'undefined') console.log(`[Voice ${seq}] ${msg}`, extra);
-		else console.log(`[Voice ${seq}] ${msg}`);
+		if (typeof extra !== 'undefined') console.log(`[Voice] ${msg}`, extra);
+		else console.log(`[Voice] ${msg}`);
 	}, []);
   const [input, setInput] = useState('');
   const [listening, setListening] = useState(false);
@@ -368,6 +365,36 @@ export default function ChatScreen({ route, navigation }: any) {
 
   // Auto-scroll state and ref for mobile chat
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Ref for mic button to attach native DOM listeners on web
+  const micButtonRef = useRef<View>(null);
+
+  // Attach native DOM event listeners on web to prevent text selection on long press
+  useEffect(() => {
+    if (Platform.OS !== 'web' || !micButtonRef.current) return;
+
+    // @ts-ignore - Get the underlying DOM element from React Native Web
+    const domNode = micButtonRef.current as any;
+    if (!domNode || typeof domNode.addEventListener !== 'function') return;
+
+    const handleTouchStart = (e: TouchEvent) => {
+      // Prevent default to stop text selection on long press
+      if (e.cancelable) e.preventDefault();
+    };
+
+    const handleContextMenu = (e: Event) => {
+      e.preventDefault();
+    };
+
+    // Use passive: false to allow preventDefault
+    domNode.addEventListener('touchstart', handleTouchStart, { passive: false });
+    domNode.addEventListener('contextmenu', handleContextMenu, { passive: false });
+
+    return () => {
+      domNode.removeEventListener('touchstart', handleTouchStart);
+      domNode.removeEventListener('contextmenu', handleContextMenu);
+    };
+  }, []);
   const [shouldAutoScroll, setShouldAutoScroll] = useState(true);
   // Track scroll timeout for debouncing rapid message updates
   const scrollTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -2380,57 +2407,47 @@ export default function ChatScreen({ route, navigation }: any) {
           >
             <Text style={styles.ttsToggleText}>{ttsEnabled ? '🔊' : '🔇'}</Text>
           </TouchableOpacity>
-          <View style={styles.micWrapper}>
-            <TouchableOpacity
-              style={[styles.mic, listening && styles.micOn]}
-              activeOpacity={0.7}
-              delayPressIn={0}
+          <View
+            ref={micButtonRef}
+            style={styles.micWrapper}
+          >
+            <Pressable
+              style={[
+                styles.mic,
+                listening && styles.micOn,
+                // @ts-ignore - Web-specific CSS to prevent text selection
+                Platform.OS === 'web' && { userSelect: 'none', WebkitUserSelect: 'none', WebkitTouchCallout: 'none', touchAction: 'manipulation' },
+              ]}
               onPressIn={!handsFree ? (e: GestureResponderEvent) => {
-					lastGrantTimeRef.current = Date.now();
-					voiceLog('mic:onPressIn', {
-						gestureId: voiceGestureIdRef.current,
-						listening: listeningRef.current,
-						starting: startingRef.current,
-					});
-					if (!listeningRef.current) startRecording(e);
+                lastGrantTimeRef.current = Date.now();
+                voiceLog('mic:onPressIn');
+                if (!listeningRef.current) startRecording(e);
               } : undefined}
               onPressOut={!handsFree ? () => {
                 const now = Date.now();
                 const dt = now - lastGrantTimeRef.current;
                 const delay = Math.max(0, minHoldMs - dt);
-					voiceLog('mic:onPressOut', {
-						gestureId: voiceGestureIdRef.current,
-						listening: listeningRef.current,
-						dt,
-						delay,
-					});
+                voiceLog('mic:onPressOut');
                 if (delay > 0) {
-						setTimeout(() => {
-							voiceLog('mic:onPressOut -> delayed stop fired', {
-								gestureId: voiceGestureIdRef.current,
-								listening: listeningRef.current,
-							});
-							if (listeningRef.current) stopRecordingAndHandle();
-						}, delay);
+                  setTimeout(() => {
+                    if (listeningRef.current) stopRecordingAndHandle();
+                  }, delay);
                 } else {
-	                  if (listeningRef.current) stopRecordingAndHandle();
+                  if (listeningRef.current) stopRecordingAndHandle();
                 }
               } : undefined}
               onPress={handsFree ? () => {
-					voiceLog('mic:onPress (handsFree)', {
-						gestureId: voiceGestureIdRef.current,
-						listening: listeningRef.current,
-					});
-					if (!listeningRef.current) startRecording(); else stopRecordingAndHandle();
+                voiceLog('mic:onPress (handsFree)');
+                if (!listeningRef.current) startRecording(); else stopRecordingAndHandle();
               } : undefined}
             >
-              <Text style={styles.micText}>
+              <Text style={styles.micText} selectable={false}>
                 {listening ? '🎙️' : '🎤'}
               </Text>
-              <Text style={[styles.micLabel, listening && styles.micLabelOn]}>
+              <Text style={[styles.micLabel, listening && styles.micLabelOn]} selectable={false}>
                 {handsFree ? (listening ? 'Stop' : 'Talk') : (listening ? '...' : 'Hold')}
               </Text>
-            </TouchableOpacity>
+            </Pressable>
           </View>
           <TextInput
             style={styles.input}
@@ -2531,6 +2548,7 @@ function createStyles(theme: Theme) {
       backgroundColor: theme.colors.primary,
       borderColor: theme.colors.primary,
     },
+
     micText: {
       fontSize: 18,
     },

@@ -31,6 +31,7 @@ import {
 } from "./cloudflare-tunnel"
 import { initModelsDevService } from "./models-dev-service"
 import { isHeadless } from "./debug"
+import { initializeSessionState } from "./acp-session-state"
 
 // Enable CDP remote debugging port if REMOTE_DEBUGGING_PORT env variable is set
 // This must be called before app.whenReady()
@@ -56,6 +57,9 @@ registerServeSchema()
 app.whenReady().then(() => {
   initDebugFlags(process.argv)
   logApp("ACP Remote starting up...")
+
+  // Initialize ACP session state (load persisted sessions from disk)
+  initializeSessionState()
 
   initializeDeepLinkHandling()
   logApp("Deep link handling initialized")

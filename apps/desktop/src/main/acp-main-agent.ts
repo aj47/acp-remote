@@ -14,6 +14,7 @@ import {
   setAcpToSpeakMcpSessionMapping,
   hasContextBeenInjected,
   markContextInjected,
+  getPersistedSessionInfo,
 } from "./acp-session-state"
 import { emitAgentProgress } from "./emit-agent-progress"
 import { AgentProgressUpdate, AgentProgressStep, AgentMemory, AgentProfile } from "../shared/types"
@@ -293,27 +294,83 @@ export async function processTranscriptWithACPAgent(
 
   try {
     // Get or create ACP session
+    // Session resolution order:
+    // 1. Use existing in-memory session if available
+    // 2. Try to load a persisted session via session/load (if agent supports it)
+    // 3. Create a new session
     const existingSession = forceNewSession ? undefined : getSessionForConversation(conversationId)
     let acpSessionId: string | undefined
+    let sessionLoaded = false
 
     if (existingSession && existingSession.agentName === agentName) {
-      // Reuse existing session
+      // Reuse existing in-memory session
       acpSessionId = existingSession.sessionId
       touchSession(conversationId)
       logApp(`[ACP Main] Reusing existing session ${acpSessionId}`)
-    } else {
-      // Create new session
+    } else if (!forceNewSession) {
+      // Try to load a persisted session if the agent supports loadSession
+      const persistedSession = getPersistedSessionInfo(conversationId)
+      if (persistedSession && persistedSession.agentName === agentName) {
+        // Get current working directory (prefer persisted, fallback to agent profile)
+        const agentProfile = agentProfileService.getByName(agentName)
+        const cwd = persistedSession.cwd || agentProfile?.workingDirectory || process.cwd()
+
+        logApp(`[ACP Main] Attempting to load persisted session ${persistedSession.sessionId}`)
+
+        // Show progress that we're loading the session
+        await emitProgress([
+          {
+            id: generateStepId("acp-load-session"),
+            type: "thinking",
+            title: "Loading previous session...",
+            status: "in_progress",
+            timestamp: Date.now(),
+          },
+        ], false)
+
+        // Call loadSession - it will initialize the agent and check capabilities
+        const loadResult = await acpService.loadSession(
+          agentName,
+          persistedSession.sessionId,
+          cwd
+        )
+
+        if (loadResult.success && loadResult.sessionId) {
+          acpSessionId = loadResult.sessionId
+          sessionLoaded = true
+          // Update in-memory state with the loaded session
+          setSessionForConversation(conversationId, acpSessionId, agentName, cwd)
+          logApp(`[ACP Main] Successfully loaded session ${acpSessionId}`)
+        } else {
+          // Session load failed - clear persisted session and create new
+          logApp(`[ACP Main] Failed to load session: ${loadResult.error}. Creating new session.`)
+          clearSessionForConversation(conversationId)
+        }
+      }
+    }
+
+    // If we still don't have a session, create a new one
+    if (!acpSessionId) {
       acpSessionId = await acpService.getOrCreateSession(agentName, true)
       if (!acpSessionId) {
         throw new Error(`Failed to create session with agent ${agentName}`)
       }
-      setSessionForConversation(conversationId, acpSessionId, agentName)
+      // Get working directory for persistence
+      const agentProfile = agentProfileService.getByName(agentName)
+      const cwd = agentProfile?.workingDirectory || process.cwd()
+      setSessionForConversation(conversationId, acpSessionId, agentName, cwd)
       logApp(`[ACP Main] Created new session ${acpSessionId}`)
     }
 
     // Register the ACP session → ACP Remote session mapping
     // This is critical for routing tool approval requests to the correct UI session
     setAcpToSpeakMcpSessionMapping(acpSessionId, sessionId)
+
+    // If session was loaded, context was already injected in the original session
+    // Mark it as such to avoid re-injecting
+    if (sessionLoaded && !hasContextBeenInjected(conversationId)) {
+      markContextInjected(conversationId)
+    }
 
     // Set up progress listener for session updates
     const progressHandler = (event: {

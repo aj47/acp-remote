@@ -4,10 +4,31 @@
 
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest"
 
+// Mock electron app BEFORE any imports (needed by acp-session-state.ts)
+vi.mock("electron", () => ({
+  app: {
+    getPath: vi.fn(() => "/mock/app/data"),
+  },
+}))
+
 // Mock child_process
 const mockSpawn = vi.fn()
 vi.mock("child_process", () => ({
   spawn: (...args: unknown[]) => mockSpawn(...args),
+}))
+
+// Mock fs for acp-session-state persistence
+vi.mock("fs", () => ({
+  default: {
+    existsSync: vi.fn(() => false),
+    readFileSync: vi.fn(() => ""),
+    writeFileSync: vi.fn(),
+    mkdirSync: vi.fn(),
+  },
+  existsSync: vi.fn(() => false),
+  readFileSync: vi.fn(() => ""),
+  writeFileSync: vi.fn(),
+  mkdirSync: vi.fn(),
 }))
 
 // Mock fs/promises for file operations
@@ -78,6 +99,7 @@ vi.mock("./config", () => ({
   configStore: {
     get: () => mockConfig,
   },
+  dataFolder: "/mock/app/data/ACP Remote",
 }))
 
 // Mock debug
