@@ -159,6 +159,81 @@ Configure speech providers in Settings → Providers:
 - **STT**: OpenAI Whisper, Groq Whisper, or local Sherpa-ONNX
 - **TTS**: OpenAI, Groq, or Google Gemini voices
 
+## 🖥️ Headless Mode (SSH/VM)
+
+Run ACP Remote on a remote server or VM without a GUI:
+
+### CLI Setup
+
+Configure the app entirely from the terminal:
+
+```bash
+# Build the CLI
+cd apps/desktop && pnpm run build:cli
+
+# Interactive setup wizard
+node dist-cli/index.js setup
+
+# Or configure manually
+node dist-cli/index.js config set remoteServerEnabled true
+node dist-cli/index.js agent add auggie --command auggie --args "--acp"
+node dist-cli/index.js agent set-main auggie
+```
+
+### CLI Commands
+
+| Command | Description |
+|---------|-------------|
+| `acp-remote setup` | Interactive setup wizard |
+| `acp-remote config get [key]` | Get configuration value(s) |
+| `acp-remote config set <key> <value>` | Set a configuration value |
+| `acp-remote agent list` | List all agent profiles |
+| `acp-remote agent add <name>` | Add a new agent profile |
+| `acp-remote agent set-main <name>` | Set the main agent |
+| `acp-remote qr` | Show connection QR code |
+| `acp-remote status` | Show current status |
+
+### Running Headless
+
+Start the app without GUI (server-only mode):
+
+```bash
+# Via command line flag
+pnpm dev -- --headless
+
+# Via environment variable
+ACP_HEADLESS=1 pnpm dev
+
+# With QR code output for mobile connection
+pnpm dev -- --headless --qr
+```
+
+In headless mode:
+- No windows are created
+- Remote server starts automatically on port 3210
+- Cloudflare tunnel auto-starts if configured
+- Server URL printed to terminal
+
+### Example Workflow
+
+```bash
+# 1. SSH into your VM
+ssh user@your-vm
+
+# 2. Clone and setup
+git clone https://github.com/aj47/acp-remote.git && cd acp-remote
+pnpm install && pnpm build-rs
+
+# 3. Configure via CLI
+cd apps/desktop && pnpm run build:cli
+node dist-cli/index.js setup
+
+# 4. Run headless with tunnel
+pnpm dev -- --headless --qr
+
+# 5. Scan QR code from mobile app to connect
+```
+
 ## 🛠️ Development
 
 ```bash
