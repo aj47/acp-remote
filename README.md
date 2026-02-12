@@ -7,7 +7,7 @@
 
 **Voice and mobile interface for [ACP (Agent Client Protocol)](https://agentclientprotocol.com/) agents.**
 
-ACP Remote lets you control AI coding agents like [Claude Code](https://github.com/anthropics/claude-code), [Augment](https://www.augmentcode.com/), [Gemini CLI](https://github.com/google-gemini/gemini-cli), and other ACP-compatible agents using voice commands or from your mobile device.
+ACP Remote lets you control AI coding agents like [Augment](https://www.augmentcode.com/), [Claude Code](https://github.com/anthropics/claude-code), [Gemini CLI](https://github.com/google-gemini/gemini-cli), and other ACP-compatible agents using voice commands or from your mobile device.
 
 ## What is ACP?
 
@@ -17,7 +17,7 @@ The [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) is an open s
 
 | Category | Capabilities |
 |----------|--------------|
-| **🤖 ACP Agents** | Connect to Claude Code, Augment, Gemini CLI, Codex CLI, and any ACP-compatible agent |
+| **🤖 ACP Agents** | Connect to Augment, Claude Code, Gemini CLI, Codex CLI, and any ACP-compatible agent |
 | **🎤 Voice Control** | Hold-to-record voice commands, 30+ languages, auto-transcription |
 | **📱 Mobile App** | Control your desktop agents from iOS/Android via secure Cloudflare Tunnel |
 | **🔧 MCP Tools** | Pass MCP servers to agents for filesystem, browser, database access |
@@ -41,9 +41,9 @@ The [Agent Client Protocol (ACP)](https://agentclientprotocol.com/) is an open s
 
 ### Setup
 
-1. **Install an ACP agent** (e.g., Claude Code):
+1. **Install an ACP agent** (e.g., Augment):
    ```bash
-   npm install -g @anthropics/claude-code
+   npm install -g @anthropics/claude-code  # or use Augment, Gemini CLI, etc.
    ```
 
 2. **Launch ACP Remote** and configure your agent in Settings → Agent Profiles
@@ -129,10 +129,10 @@ Configure ACP agents in Settings → Agent Profiles:
 
 ```json
 {
-  "name": "claude-code",
+  "name": "augment",
   "connection": {
     "type": "stdio",
-    "command": "claude",
+    "command": "augment-agent",
     "args": ["--acp"]
   }
 }
@@ -281,4 +281,4 @@ This project is licensed under the [AGPL-3.0 License](./LICENSE).
 
 ---
 
-**Made with ❤️ by the ACP Remote team**
+**Made with ❤️ by AJ**
